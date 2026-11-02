@@ -30,6 +30,31 @@ KADAM 6: App chalao (ye Flask app hai, Streamlit nahi):
 `streamlit run app.py` mat chalao. Is folder ka `app.py` Flask server hai, isliye
 Streamlit mein blank page dikhega.
 
+DEPLOYMENT (Render par)
+-----------------------
+1. Is `v2/ev-agent` folder ko GitHub repository mein push karo. `.env` ko kabhi
+   GitHub par push mat karo; API key ke liye `.env.example` sirf template hai.
+2. render.com par account banao, New -> Web Service chuno, aur repository connect karo.
+3. Root Directory mein `v2/ev-agent` set karo (agar repository ke root mein ye folder hai).
+4. Runtime `Python 3` rakho.
+5. Build Command:
+       pip install -r requirements.txt
+6. Start Command:
+       gunicorn --bind 0.0.0.0:$PORT app:app
+7. Environment Variables mein `GNANI_API_KEY` naam se apni key add karo. Value
+   `.env` se copy karo, quotes ke bina.
+8. Deploy ke baad Render ka URL kholo. Health check ke liye URL ke end mein `/`
+   lagao.
+
+Local production-style check:
+       pip install -r requirements.txt
+       gunicorn --bind 127.0.0.1:5000 app:app
+
+Important:
+- Browser microphone permission HTTPS deployment par hi reliably kaam karegi.
+- Gnani API calls server se hoti hain; API key browser code mein nahi jaati.
+- Free hosting service sleep kar sakti hai, isliye pehli request slow ho sakti hai.
+
 NOISE TEST (interview ke liye)
 1. App chalu karke 5-10 chhote sawaal bolo. Har jawab ke upar "WAV mein save karo" link aata hai.
    Un files ko test_clips folder mein clip1.wav, clip2.wav... naam se rakho.
