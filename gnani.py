@@ -1,0 +1,138 @@
+"""
+Gnani ke Prisma (awaaz -> text) aur Timbre (text -> awaaz) ko bulane wala code.
+API key .env file se padhi jaati hai (GNANI_API_KEY).
+
+Agar Gnani ke docs mein koi naam alag ho (jaise voice ya model), to neeche
+SETTINGS wale hisse mein badal do.
+"""
+import os
+import io
+import wave
+import base64
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# ---------------- SETTINGS ----------------
+STT_URL = "https://api.vachana.ai/stt/v3"
+TTS_URL = "https://api.vachana.ai/api/v1/tts/inference"
+STT_LANGUAGE = "hi-IN"        # Hinglish ke liye Hindi sahi chalta hai
+TTS_VOICE = "Nalini"
+TTS_MODEL = "timbre-v2.5"
+TTS_SAMPLE_RATE = 48000
+TIMEOUT_SEC = 60
+# ------------------------------------------
+
+
+class GnaniError(Exception):
+    pass
+
+
+def _api_key():
+    key = os.getenv("GNANI_API_KEY", "").strip()
+    if not key or key == "PASTE_YOUR_API_KEY_HERE":
+        raise GnaniError(
+            "API key nahi mili. .env file kholo aur PASTE_YOUR_API_KEY_HERE ki jagah apni Gnani API key daalo."
+        )
+    return key
+
+
+def _find_text(obj):
+    """Prisma ke jawab (JSON) mein se transcript dhundta hai."""
+    if isinstance(obj, str):
+        return obj
+    if isinstance(obj, dict):
+        for k in ("transcript", "transcription", "text", "result", "output"):
+            if k in obj:
+                found = _find_text(obj[k])
+                if found:
+                    return found
+        for v in obj.values():
+            found = _find_text(v)
+            if found:
+                return found
+    if isinstance(obj, list):
+        parts = [_find_text(x) for x in obj]
+        parts = [p for p in parts if p]
+        if parts:
+            return " ".join(parts)
+    return ""
+
+
+def transcribe(wav_bytes, filename="audio.wav"):
+    """Prisma: WAV audio bytes -> text."""
+    key = _api_key()
+    try:
+        resp = requests.post(
+            STT_URL,
+            headers={"X-API-Key-ID": key},
+            files={"audio_file": (filename, wav_bytes, "audio/wav")},
+            data={"language_code": STT_LANGUAGE},
+            timeout=TIMEOUT_SEC,
+        )
+    except requests.RequestException as e:
+        raise GnaniError(f"Prisma se connect nahi ho paya: {e}")
+    if resp.status_code != 200:
+        raise GnaniError(f"Prisma error {resp.status_code}: {resp.text[:300]}")
+    try:
+        data = resp.json()
+    except ValueError:
+        return resp.text.strip()
+    return _find_text(data).strip()
+
+
+def _pcm_to_wav(pcm_bytes, sample_rate):
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(sample_rate)
+        w.writeframes(pcm_bytes)
+    return buf.getvalue()
+
+
+def _extract_audio(resp):
+    """Timbre ke jawab se audio bytes nikalta hai (seedha audio ya JSON mein base64)."""
+    ctype = resp.headers.get("Content-Type", "")
+    if "json" in ctype:
+        data = resp.json()
+        b64 = None
+        if isinstance(data, dict):
+            for k in ("audio", "audio_content", "audio_base64", "data"):
+                if isinstance(data.get(k), str):
+                    b64 = data[k]
+                    break
+        if not b64:
+            raise GnaniError(f"Timbre ke jawab mein audio nahi mila: {str(data)[:300]}")
+        return base64.b64decode(b64)
+    return resp.content
+
+
+def synthesize(text):
+    """Timbre: text -> WAV audio bytes."""
+    key = _api_key()
+    headers = {"Content-Type": "application/json", "X-API-Key-ID": key}
+    body = {
+        "text": text,
+        "voice": TTS_VOICE,
+        "model": TTS_MODEL,
+        "language": "hi-IN",
+        "audio_config": {
+            "sample_rate": TTS_SAMPLE_RATE,
+            "num_channels": 1,
+            "sample_width": 2,
+            "encoding": "linear_pcm",
+            "container": "wav",
+        },
+    }
+    try:
+        resp = requests.post(TTS_URL, headers=headers, json=body, timeout=TIMEOUT_SEC)
+    except requests.RequestException as e:
+        raise GnaniError(f"Timbre se connect nahi ho paya: {e}")
+    if resp.status_code != 200:
+        raise GnaniError(f"Timbre error {resp.status_code}: {resp.text[:300]}")
+    audio = _extract_audio(resp)
+    if not audio.startswith(b"RIFF"):          # WAV header nahi hai to laga do
+        audio = _pcm_to_wav(audio, TTS_SAMPLE_RATE)
+    return audio

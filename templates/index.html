@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ई-रिक्शा सहायक</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --road:#22262b; --road-2:#2f343b; --signal:#f2c200; --leaf:#1e7a4c;
+    --paper:#f3f4f1; --ink:#16181b; --warn:#b3261e;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:"Baloo 2","Noto Sans Devanagari",system-ui,sans-serif;background:var(--paper);color:var(--ink);
+       min-height:100vh;display:flex;flex-direction:column;align-items:center}
+  header{width:100%;background:var(--road);color:var(--paper);padding:22px 20px 26px;border-bottom:6px solid var(--signal)}
+  header h1{margin:0;font-size:2rem;font-weight:800;line-height:1.1}
+  header p{margin:6px 0 0;opacity:.8;font-size:1.05rem}
+  main{width:100%;max-width:640px;padding:22px 18px 60px}
+  .mic-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;margin:8px 0 22px}
+  #mic{width:132px;height:132px;border-radius:50%;border:none;cursor:pointer;background:var(--leaf);color:#fff;
+       font:800 1.15rem "Baloo 2",sans-serif;box-shadow:0 0 0 8px rgba(30,122,76,.18);transition:transform .12s}
+  #mic:active{transform:scale(.96)}
+  #mic:focus-visible,.chip:focus-visible,#send:focus-visible,input[type=file]:focus-visible{outline:3px solid var(--signal);outline-offset:3px}
+  #mic.rec{background:var(--warn);box-shadow:0 0 0 8px rgba(179,38,30,.2)}
+  #status{min-height:1.6em;font-size:1.05rem;color:#444;text-align:center}
+  .chat{display:flex;flex-direction:column;gap:12px}
+  .bubble{padding:12px 16px;border-radius:14px;font-size:1.15rem;line-height:1.5;max-width:92%}
+  .you{align-self:flex-end;background:var(--signal);border-bottom-right-radius:4px}
+  .bot{align-self:flex-start;background:var(--road);color:var(--paper);border-bottom-left-radius:4px}
+  .err{align-self:stretch;background:#fbe9e7;color:var(--warn);border:1px solid var(--warn);max-width:100%}
+  .meta{font-size:.85rem;opacity:.75;margin-top:6px}
+  audio{width:100%;margin-top:10px}
+  section.tools{margin-top:30px;border-top:2px solid #d9dbd5;padding-top:18px}
+  section.tools h2{font-size:1.1rem;margin:0 0 10px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{border:2px solid var(--road);background:#fff;border-radius:999px;padding:6px 14px;font:600 1rem "Baloo 2",sans-serif;cursor:pointer}
+  .chip:hover{background:var(--signal)}
+  .row{display:flex;gap:8px;margin-top:12px}
+  input[type=text]{flex:1;padding:10px 12px;font:1.05rem "Baloo 2",sans-serif;border:2px solid var(--road);border-radius:10px}
+  #send{background:var(--road);color:#fff;border:none;border-radius:10px;padding:0 18px;font:600 1rem "Baloo 2",sans-serif;cursor:pointer}
+  label.file{display:block;margin-top:14px;font-size:1rem}
+  @media (prefers-reduced-motion:reduce){#mic{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>ई-रिक्शा सहायक</h1>
+  <p>बटन दबाकर बोलिए। रेंज, खर्चा, चार्जिंग की दिक्कत, चार्जिंग पॉइंट।</p>
+</header>
+<main>
+  <div class="mic-wrap">
+    <button id="mic" aria-label="बोलना शुरू करें">बोलिए</button>
+    <div id="status" role="status" aria-live="polite">बटन दबाइए, बोलिए, फिर दोबारा दबाइए।</div>
+  </div>
+
+  <div class="chat" id="chat"></div>
+
+  <section class="tools">
+    <h2>बोल नहीं सकते? ये आज़माइए</h2>
+    <div class="chips" id="chips">
+      <button class="chip" data-q="Bhaiya, 60% charge hai, kitna chalega aur charge mein kitna kharcha aayega?">60% चार्ज, कितना चलेगा?</button>
+      <button class="chip" data-q="meri charging bahut slow ho rahi hai">चार्जिंग धीमी</button>
+      <button class="chip" data-q="range kam ho gayi hai">रेंज कम हो गई</button>
+      <button class="chip" data-q="charger detect nahi kar raha">चार्जर डिटेक्ट नहीं</button>
+      <button class="chip" data-q="Jaipur mein charging station kahan hai">जयपुर चार्जिंग पॉइंट</button>
+    </div>
+    <div class="row">
+      <input type="text" id="typed" placeholder="यहाँ लिखिए" aria-label="सवाल लिखें">
+      <button id="send">भेजें</button>
+    </div>
+    <label class="file">या रिकॉर्ड की हुई ऑडियो फ़ाइल चुनिए (noise test के लिए):
+      <input type="file" id="file" accept="audio/*">
+    </label>
+  </section>
+</main>
+
+<script>
+const micBtn = document.getElementById('mic');
+const statusEl = document.getElementById('status');
+const chat = document.getElementById('chat');
+let recorder = null, chunks = [], stream = null;
+
+function say(msg){ statusEl.textContent = msg; }
+
+function addBubble(text, cls, meta){
+  const d = document.createElement('div');
+  d.className = 'bubble ' + cls;
+  d.textContent = text;
+  if (meta){ const m = document.createElement('div'); m.className = 'meta'; m.textContent = meta; d.appendChild(m); }
+  chat.appendChild(d);
+  d.scrollIntoView({behavior:'smooth', block:'end'});
+  return d;
+}
+
+function showResult(data){
+  if (data.error){ addBubble(data.error, 'err'); say('कुछ गड़बड़ हुई।'); return; }
+  if (data.transcript) addBubble(data.transcript, 'you',
+      data.stt_seconds ? 'सुना गया (' + data.stt_seconds + ' सेकंड)' : '');
+  const meta = data.tts_seconds ? 'आवाज़ बनने में ' + data.tts_seconds + ' सेकंड' : '';
+  const bubble = addBubble(data.reply, 'bot', meta);
+  if (data.tts_error){ addBubble('आवाज़ नहीं बन पाई: ' + data.tts_error, 'err'); }
+  if (data.audio_b64){
+    const a = document.createElement('audio');
+    a.controls = true;
+    a.src = 'data:audio/wav;base64,' + data.audio_b64;
+    bubble.appendChild(a);
+    a.play().catch(()=>{});
+  }
+  say('फिर से पूछने के लिए बटन दबाइए।');
+}
+
+async function postJSON(url, body){
+  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  return r.json();
+}
+
+async function sendText(text){
+  if (!text.trim()) return;
+  say('सोच रहा हूँ...');
+  try { showResult(await postJSON('/api/text', {text})); }
+  catch(e){ showResult({error:'सर्वर से जुड़ नहीं पाया: ' + e}); }
+}
+
+async function sendAudio(wavBlob){
+  say('सुन रहा हूँ...');
+  const fd = new FormData();
+  fd.append('audio', wavBlob, 'audio.wav');
+  const dl = document.createElement('a');
+  dl.href = URL.createObjectURL(wavBlob); dl.download = 'clip.wav';
+  dl.textContent = 'इस रिकॉर्डिंग को WAV में सेव करें';
+  dl.className = 'meta'; dl.style.cssText = 'align-self:flex-end;color:#16181b;text-decoration:underline';
+  chat.appendChild(dl);
+  try {
+    const r = await fetch('/api/voice', {method:'POST', body:fd});
+    showResult(await r.json());
+  } catch(e){ showResult({error:'सर्वर से जुड़ नहीं पाया: ' + e}); }
+}
+
+// ---- Kisi bhi audio ko 16 kHz mono WAV banana ----
+async function toWav(arrayBuffer){
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const decoded = await ctx.decodeAudioData(arrayBuffer);
+  const rate = 16000;
+  const off = new OfflineAudioContext(1, Math.ceil(decoded.duration * rate), rate);
+  const src = off.createBufferSource();
+  src.buffer = decoded; src.connect(off.destination); src.start();
+  const rendered = await off.startRendering();
+  const pcm = rendered.getChannelData(0);
+  const buf = new ArrayBuffer(44 + pcm.length * 2);
+  const v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0,'RIFF'); v.setUint32(4, 36 + pcm.length*2, true); w(8,'WAVE'); w(12,'fmt ');
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,rate,true); v.setUint32(28,rate*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  w(36,'data'); v.setUint32(40, pcm.length*2, true);
+  for (let i = 0; i < pcm.length; i++){
+    const s = Math.max(-1, Math.min(1, pcm[i]));
+    v.setInt16(44 + i*2, s < 0 ? s*0x8000 : s*0x7FFF, true);
+  }
+  return new Blob([buf], {type:'audio/wav'});
+}
+
+micBtn.addEventListener('click', async () => {
+  if (recorder && recorder.state === 'recording'){ recorder.stop(); return; }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({audio:true});
+  } catch(e){ say('माइक की अनुमति नहीं मिली। ब्राउज़र में माइक allow करिए।'); return; }
+  chunks = [];
+  recorder = new MediaRecorder(stream);
+  recorder.ondataavailable = e => chunks.push(e.data);
+  recorder.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    micBtn.classList.remove('rec'); micBtn.textContent = 'बोलिए';
+    say('प्रोसेस कर रहा हूँ...');
+    try {
+      const blob = new Blob(chunks, {type: recorder.mimeType});
+      sendAudio(await toWav(await blob.arrayBuffer()));
+    } catch(e){ showResult({error:'रिकॉर्डिंग को पढ़ नहीं पाया: ' + e}); }
+  };
+  recorder.start();
+  micBtn.classList.add('rec'); micBtn.textContent = 'रोकिए';
+  say('सुन रहा हूँ... बोलकर फिर से बटन दबाइए।');
+});
+
+document.getElementById('chips').addEventListener('click', e => {
+  const q = e.target.dataset.q; if (q) sendText(q);
+});
+document.getElementById('send').addEventListener('click', () => {
+  const el = document.getElementById('typed'); const t = el.value; el.value = ''; sendText(t);
+});
+document.getElementById('typed').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('send').click(); });
+document.getElementById('file').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  say('फ़ाइल पढ़ रहा हूँ...');
+  try { sendAudio(await toWav(await f.arrayBuffer())); }
+  catch(err){ showResult({error:'फ़ाइल नहीं खुली: ' + err}); }
+  e.target.value = '';
+});
+</script>
+</body>
+</html>
