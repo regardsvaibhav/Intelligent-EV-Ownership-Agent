@@ -1,79 +1,132 @@
-E-RICKSHAW VOICE AGENT - kaise chalana hai
-===========================================
-Aapko koi code likhna nahi hai. Bas neeche ke kadam copy-paste karo.
+# ⚡ Intelligent EV Ownership Agent
+### Your AI-powered companion for smarter electric vehicle ownership.
 
-KADAM 1: Python (ek baar)
-- python.org se Python 3.10 ya naya install karo.
-  Windows par install karte waqt "Add Python to PATH" ka box TICK karna.
+An intelligent, agent-driven platform designed to simplify the electric vehicle ownership journey — helping users make informed decisions about EV selection, ownership costs, charging, battery health, and maintenance.
 
-KADAM 2: API key
-- .env file ko Notepad se kholo.
-- PASTE_YOUR_API_KEY_HERE ki jagah apni Gnani API key paste karo. Kuch aur mat badalna. Save karo.
-  (Key kisi ko mat bhejna, GitHub par mat daalna.)
+Instead of navigating multiple platforms, scattered information, and complex specifications, users can interact with an intelligent assistant that understands their requirements and provides actionable insights.
 
-KADAM 3: Terminal kholo is folder mein
-- Windows: folder kholo, upar address bar mein "cmd" likho, Enter dabao.
-- Mac: folder par right-click -> New Terminal at Folder.
+---
 
-KADAM 4: Libraries install (ek baar) - ye line paste karke Enter:
-    pip install -r requirements.txt
+## 🚀 Overview
 
-KADAM 5: Pehle bina key ke logic test karo (optional):
-    python agent.py
+Electric vehicle adoption is growing rapidly, but owning an EV still comes with several unanswered questions:
 
-KADAM 6: App chalao (ye Flask app hai, Streamlit nahi):
-    python app.py
-- Phir browser (Chrome) mein kholo:  http://localhost:5000
-- Hari "बोलिए" button dabao, Hinglish mein bolo, dobara button dabao.
-- Pehle chips (neeche ke buttons) dabake dekho. Wo bina mic ke chalte hain.
+- Which electric vehicle is best suited to my needs and budget?
+- What will my actual monthly and lifetime ownership cost look like?
+- How much will charging cost compared to conventional fuel?
+- How should I understand battery degradation and vehicle health?
+- Is an EV practical for my daily commute and long-distance travel?
 
-`streamlit run app.py` mat chalao. Is folder ka `app.py` Flask server hai, isliye
-Streamlit mein blank page dikhega.
+**Intelligent EV Ownership Agent** aims to bridge this information gap through an AI-powered ownership assistant that transforms complex EV-related information into practical, personalized recommendations.
 
-DEPLOYMENT (Render par)
------------------------
-1. Is `v2/ev-agent` folder ko GitHub repository mein push karo. `.env` ko kabhi
-   GitHub par push mat karo; API key ke liye `.env.example` sirf template hai.
-2. render.com par account banao, New -> Web Service chuno, aur repository connect karo.
-3. Root Directory mein `v2/ev-agent` set karo (agar repository ke root mein ye folder hai).
-4. Runtime `Python 3` rakho.
-5. Build Command:
-       pip install -r requirements.txt
-6. Start Command:
-       gunicorn --bind 0.0.0.0:$PORT app:app
-7. Environment Variables mein `GNANI_API_KEY` naam se apni key add karo. Value
-   `.env` se copy karo, quotes ke bina.
-8. Deploy ke baad Render ka URL kholo. Health check ke liye URL ke end mein `/`
-   lagao.
+## ✨ Key Capabilities
 
-Local production-style check:
-       pip install -r requirements.txt
-       gunicorn --bind 127.0.0.1:5000 app:app
+The platform is designed around the major stages of the EV ownership journey:
 
-Important:
-- Browser microphone permission HTTPS deployment par hi reliably kaam karegi.
-- Gnani API calls server se hoti hain; API key browser code mein nahi jaati.
-- Free hosting service sleep kar sakti hai, isliye pehli request slow ho sakti hai.
+| Capability | Description |
+|---|---|
+| 🚗 EV Discovery | Explore and evaluate EV options based on individual requirements. |
+| 💰 Ownership Economics | Understand purchase costs, running expenses and total cost of ownership. |
+| 🔋 Battery Intelligence | Make sense of battery performance, health and degradation-related information. |
+| ⚡ Charging Insights | Understand charging requirements, costs and usage considerations. |
+| 🛠️ Maintenance Guidance | Access contextual assistance for EV maintenance and ownership concerns. |
+| 🤖 Intelligent Assistance | Interact with an AI assistant for natural-language queries and decision support. |
 
-NOISE TEST (interview ke liye)
-1. App chalu karke 5-10 chhote sawaal bolo. Har jawab ke upar "WAV mein save karo" link aata hai.
-   Un files ko test_clips folder mein clip1.wav, clip2.wav... naam se rakho.
-2. Terminal mein:   python noise_test.py
-   Ye har clip ka saaf transcript .txt mein likh dega.
-3. Har .txt kholo, galti ho to theek karo (Devanagari mein). Save karo.
-4. Dobara:          python noise_test.py
-   results.csv aur noisy_clips/ (shor wali awaaz) banega. Summary mein saaf vs shor wali accuracy dikhegi.
+## 🧠 Why Agentic AI?
 
-AGAR KUCH ATKE
-- "API key nahi mili"          -> KADAM 2 dobara.
-- "Prisma error 401/403"       -> key galat hai ya credits khatam.
-- "Timbre error ..."           -> gnani.py mein TTS_VOICE aur TTS_MODEL ko current TTS REST docs ke hisaab se badlo.
-- Prisma error 4xx / transcript khali -> gnani.py ki STT_URL aur STT_LANGUAGE docs se match karo.
-- Jo error aaye wo poora yahan Claude ko paste kar do.
+Traditional EV comparison platforms primarily display predefined information. An intelligent agent can go further by interpreting user intent, identifying the information required, and coordinating relevant tools to generate contextual responses.
 
-NUMBERS BADALNA
-- agent.py ke upar BATTERY_KWH, FULL_RANGE_KM, CHARGER_KW, TARIFF_RS_PER_UNIT hain.
-  Ye andaazan (assumed) numbers hain. Apne e-rickshaw ke asli numbers daal sakte ho.
+The intended workflow:
 
-DATA
-- Sab charging stations nakli (synthetic) hain. Koi real number ya jagah nahi.
+1. **Understand:** Interpret the user's question and ownership requirements.
+2. **Reason:** Identify the relevant EV parameters and information sources.
+3. **Retrieve:** Obtain relevant vehicle specifications, cost information and technical knowledge.
+4. **Analyze:** Evaluate available information against the user's requirements.
+5. **Recommend:** Generate actionable, context-aware insights.
+
+## 🏗️ System Architecture
+
+The conceptual workflow of the platform:
+
+```mermaid
+flowchart TD
+    A[EV Owner / User] --> B[Conversational Interface]
+    B --> C[AI Ownership Agent]
+    C --> D[Intent Understanding]
+    D --> E[Agent Reasoning & Planning]
+    E --> F[Tool Selection & Execution]
+    F --> G[EV Information]
+    F --> H[Cost Analysis]
+    F --> I[Battery Intelligence]
+    F --> J[Charging Insights]
+    G --> K[Response Synthesis]
+    H --> K
+    I --> K
+    J --> K
+    K --> L[Personalized Recommendations]
+```
+
+## 🛠️ Technology Stack
+
+The implementation-specific technologies can be documented here:
+
+- **Programming Language:** Python / JavaScript
+- **AI & LLM:** [Add model and provider]
+- **Agent Framework:** [Add framework]
+- **Backend:** [Add backend framework]
+- **Frontend:** [Add frontend framework]
+- **Data & Storage:** [Add database or data source]
+
+## ⚙️ Getting Started
+
+### Prerequisites
+
+- Git
+- Python 3.10+ (if using the Python backend)
+- Required API credentials, depending on the configured services
+
+### Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/regardsvaibhav/Intelligent-EV-Ownership-Agent.git
+
+cd Intelligent-EV-Ownership-Agent
+```
+
+Create and activate a virtual environment:
+
+```bash
+python -m venv venv
+```
+
+**Windows:**
+```bash
+venv\Scripts\activate
+```
+
+**macOS / Linux:**
+```bash
+source venv/bin/activate
+```
+
+Install dependencies (if a `requirements.txt` is provided):
+
+```bash
+pip install -r requirements.txt
+```
+
+Configure the required environment variables using the project's `.env.example` file.
+
+### Run the Application
+
+Follow the execution instructions for the configured application entry point.
+
+## 🎯 Vision
+
+The goal is to make EV ownership more accessible, transparent and intelligent.
+
+By combining conversational AI, agentic reasoning and EV-specific domain knowledge, the platform aims to help users move beyond generic vehicle comparisons towards informed ownership decisions.
+
+**Not just another EV chatbot — an intelligent companion for the entire EV ownership journey.**
