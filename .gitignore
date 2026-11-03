@@ -41,3 +41,6 @@ noise_results.csv
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+smoke_test.py
+smoke_tts.wav

@@ -9,6 +9,7 @@ import os
 import io
 import wave
 import base64
+import time
 import requests
 from dotenv import load_dotenv
 
@@ -91,6 +92,29 @@ def _pcm_to_wav(pcm_bytes, sample_rate):
         w.writeframes(pcm_bytes)
     return buf.getvalue()
 
+import struct
+
+def _normalize_wav(audio):
+    """Timbre sends a WAV with a placeholder length. Rebuild it with the real one."""
+    if not audio.startswith(b"RIFF"):
+        return _pcm_to_wav(audio, TTS_SAMPLE_RATE)
+    fmt_i = audio.find(b"fmt ")
+    data_i = audio.find(b"data")
+    if fmt_i < 0 or data_i < 0:
+        return audio
+    channels, rate = struct.unpack("<HI", audio[fmt_i + 10: fmt_i + 16])
+    bits = struct.unpack("<H", audio[fmt_i + 22: fmt_i + 24])[0]
+    width = max(1, bits // 8)
+    pcm = audio[data_i + 8:]
+    pcm = pcm[: len(pcm) - (len(pcm) % (width * channels))]
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(channels)
+        w.setsampwidth(width)
+        w.setframerate(rate)
+        w.writeframes(pcm)
+    return buf.getvalue()
+
 
 def _extract_audio(resp):
     """Timbre ke jawab se audio bytes nikalta hai (seedha audio ya JSON mein base64)."""
@@ -107,6 +131,26 @@ def _extract_audio(resp):
             raise GnaniError(f"Timbre ke jawab mein audio nahi mila: {str(data)[:300]}")
         return base64.b64decode(b64)
     return resp.content
+
+    import time
+
+RETRY_STATUS = {429, 502, 503, 504}
+
+def _post_with_retry(*args, retries=3, **kwargs):
+    last = None
+    for i in range(retries):
+        try:
+            resp = requests.post(*args, **kwargs)
+        except requests.RequestException as e:
+            last = e
+        else:
+            if resp.status_code not in RETRY_STATUS:
+                return resp
+            last = resp
+        time.sleep(1.5 * (i + 1))
+    if isinstance(last, requests.Response):
+        return last
+    raise last
 
 
 def synthesize(text):
@@ -132,7 +176,6 @@ def synthesize(text):
         raise GnaniError(f"Timbre se connect nahi ho paya: {e}")
     if resp.status_code != 200:
         raise GnaniError(f"Timbre error {resp.status_code}: {resp.text[:300]}")
-    audio = _extract_audio(resp)
-    if not audio.startswith(b"RIFF"):          # WAV header nahi hai to laga do
-        audio = _pcm_to_wav(audio, TTS_SAMPLE_RATE)
-    return audio
+
+
+    return _normalize_wav(_extract_audio(resp))
