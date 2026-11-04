@@ -15,6 +15,8 @@ import gnani
 import ui_view
 
 app = Flask(__name__)
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 # 15 second ki 16 kHz WAV ~0.5 MB hoti hai. Isse badi upload memory mein padhne se pehle hi 413.
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB", "5")) * 1024 * 1024
 
