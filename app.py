@@ -12,7 +12,12 @@ from flask import Flask, jsonify, request, send_from_directory
 
 import agent
 import gnani
+import llm_fallback
 import ui_view
+
+# Free LLM (Gemini) sirf tab bulaya jaata hai jab rules kuch nahi samajh paate. LLM_API_KEY na ho to band.
+if llm_fallback.enabled():
+    agent.register_fallback_classifier(llm_fallback.classify)
 
 app = Flask(__name__)
 from werkzeug.middleware.proxy_fix import ProxyFix

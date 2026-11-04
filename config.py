@@ -46,9 +46,9 @@ FUZZY_THRESHOLD = 85        # rapidfuzz ratio needed to count a misspelt keyword
 FUZZY_WEIGHT = 0.7          # a fuzzy keyword hit counts for 70% of an exact hit
 MAX_FAILURES_BEFORE_SIMPLE_PROMPT = 2
 
-# Optional embedding classifier. NOT implemented in this build (see README);
-# kept as a flag so a fallback classifier can be plugged in via
-# agent.register_fallback_classifier() without touching the rule engine.
+# Kept for compatibility. A fallback classifier is used whenever one is registered with
+# agent.register_fallback_classifier(); app.py registers llm_fallback.classify when
+# LLM_API_KEY (or GEMINI_API_KEY) is set (see README, "LLM fallback").
 USE_EMBEDDINGS = False
 
 # Per-turn JSONL log. Set EV_AGENT_LOG_PATH="" to disable (tests do this).

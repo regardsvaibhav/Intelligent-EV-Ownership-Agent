@@ -496,15 +496,58 @@ def _decide(session, text_norm, tokens, slots, ranked, source):
             q = f"क्या आप {INTENT_LABEL[options[0]]} के बारे में पूछ रहे हैं?"
         return _result("clarify", q, score=top_s, margin=margin, data={"options": options})
 
-    # Optional learned fallback (not shipped)
-    if _fallback_classifier is not None and config.USE_EMBEDDINGS:
-        label, conf = _fallback_classifier(text_norm)
-        if label in TOOLS or label in TROUBLE_INTENT_FLOW or label == "greeting":
-            _apply_slots(session, slots, [label])
-            return _run_intents(session, [label], slots, conf, 0.0)
+    # Optional fallback classifier (e.g. llm_fallback.classify), only when the rules found nothing
+    if _fallback_classifier is not None:
+        r = _use_fallback_classifier(session, text_norm, slots)
+        if r is not None:
+            return r
 
     return _failure(session, "माफ़ कीजिए, समझ नहीं पाया। रेंज, चार्जिंग का खर्चा, सफ़र या चार्जिंग पॉइंट के बारे में "
                              "पूछिए।", "fallback")
+
+
+def _use_fallback_classifier(session, text_norm, slots):
+    """
+    The classifier returns either (intent, confidence), or a dict
+    {"intent", "percent", "km", "city", "answer"} (see llm_fallback.py). Returns a result or None.
+    """
+    try:
+        out = _fallback_classifier(text_norm)
+    except Exception:
+        return None
+    if isinstance(out, tuple):
+        out = {"intent": out[0], "confidence": out[1]}
+    if not isinstance(out, dict):
+        return None
+    label = out.get("intent")
+
+    if label == "safety":
+        _clear_dialog(session)
+        session.trouble_flow = None
+        session.last_intent = "safety"
+        session.failures = 0
+        return _result("safety", tools.SAFETY_REPLY, score=10.0, margin=10.0, tool="safety_advice",
+                       data={"triggers": ["llm"]})
+
+    if label == "general_ev" and out.get("answer"):
+        session.failures = 0
+        session.last_intent = "llm_answer"
+        return _result("llm_answer", out["answer"], tool="llm_fallback")
+
+    if label in TOOLS or label in TROUBLE_INTENT_FLOW or label == "greeting":
+        # Slots the classifier heard; the agent's own tools still compute every number.
+        if out.get("percent") is not None and slots.percent is None:
+            slots.percent, slots.percent_conf = out["percent"], "high"
+        if out.get("km") is not None and slots.km is None:
+            slots.km = out["km"]
+        if out.get("city") in STATIONS and not slots.city:
+            slots.city = out["city"]
+            if out["city"] not in slots.places:
+                slots.places = slots.places + [out["city"]]
+        _apply_slots(session, slots, [label])
+        session.failures = 0
+        return _run_intents(session, [label], slots, float(out.get("confidence", 1.0)), 0.0)
+    return None
 
 
 def _handle_pending(session, tokens, slots, ranked):

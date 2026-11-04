@@ -18,7 +18,8 @@ This is a **stateful, tool-using voice dialog agent with rule-based NLU**:
   handles follow-ups and corrections, and reads back uncertain numbers.
 - Answers come from small deterministic "tools" (calculators and lookups).
 
-It does **not** use an LLM or a learned intent classifier. All numbers come from simple, documented models with
+The rules handle every turn they understand. Only when they understand nothing, an **optional LLM fallback**
+(a free LLM API, Google Gemini by default, see below) is asked; without an `LLM_API_KEY` the agent is fully rule-based. All numbers come from simple, documented models with
 assumed vehicle constants, and all station and route data is **synthetic demo data**.
 
 ## Architecture
@@ -49,6 +50,7 @@ flowchart LR
 | Demo data | `stations.py` | Synthetic stations and approximate route distances |
 | Text to speech | `gnani.py` → Timbre (`TTS_MODEL`, `TTS_VOICE` as set in `gnani.py`) | Reply text is spoken back |
 | Screen cards | `ui_view.py` | Turns each answer into card data (same rounding as the spoken reply) |
+| LLM fallback (optional) | `llm_fallback.py` → Gemini (free tier) or any OpenAI-compatible API | Only on turns the rules cannot understand |
 | Web server | `app.py` (Flask) | One `Session` per browser tab, in memory; returns reply, audio, `view` and `memory` |
 | Driver web app | `templates/index.html` | Single page, no framework; see "The driver screen" below |
 
@@ -66,6 +68,27 @@ flowchart LR
 | "चार्जर से धुआं आ रहा है" | Safety reply first, overriding any open question |
 | "जयपुर में चार्जिंग पॉइंट" | Number of demo points, the cheapest one, and the 24-hour one |
 | Unclear input | Targeted question naming the top two guesses, and a simpler prompt after two failures |
+
+## LLM fallback (optional)
+
+When the rules find no intent at all, `app.py` asks an LLM (`llm_fallback.py`, registered through
+`agent.register_fallback_classifier`). It uses any OpenAI-compatible chat API over plain `requests`; the default is
+Google Gemini's free tier. One call, JSON output, then one of:
+
+1. **A known intent** (range, trip, stations, troubleshooting, ...) plus any %, km or city it heard. The agent's
+   normal tools answer, so every number the driver hears still comes from `tools.py`, never from the LLM.
+2. **`general_ev`**: another EV-ownership question (rain, battery care, servicing). The LLM writes at most two short
+   spoken Hindi sentences, told not to state numbers, prices or brands and to send risky problems to a mechanic.
+   Logged as intent `llm_answer`.
+3. **`other`**, an error, a timeout (8 s) or invalid JSON: the normal "समझ नहीं पाया" reply.
+
+Safety words are still checked by the rules first, before any LLM call.
+
+Setup: get a free key at [Google AI Studio](https://aistudio.google.com/apikey) and set `LLM_API_KEY` (locally in
+`.env`, on Render in the Environment tab). Optional: `LLM_MODEL` (default `gemini-3.8-flash`; check which models
+your free quota covers in AI Studio), `LLM_TIMEOUT_SEC`, `LLM_FALLBACK=0` to switch it off. For Groq or OpenRouter set
+`LLM_BASE_URL` (e.g. `https://api.groq.com/openai/v1`) and `LLM_MODEL`. Free tiers have rate limits and may use
+prompts to improve their models, so don't send personal data. Tests use a fake API and never call it.
 
 ## The driver screen
 
@@ -122,7 +145,7 @@ are masked before logging. Set `EV_AGENT_LOG_PATH=` (empty) to turn logging off.
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q                           # 154 tests: numbers, slots, intents, dialogs, safety, tools, screen cards, server limits
+pytest -q                           # 181 tests: numbers, slots, intents, dialogs, safety, tools, screen cards, server limits
 python eval_intents.py              # intent accuracy on clean + simulated-STT-error text -> eval_results.md
 python noise_test.py                # real audio through Prisma: clean / traffic noise / 8 kHz phone line
 python noise_test.py --rescore      # re-score saved transcripts with the current agent (no API key needed)
@@ -161,8 +184,8 @@ How to read these numbers:
 - **Similar-sounding numbers.** If STT turns "साठ" (60) into "सात" (7) and the driver also said "प्रतिशत", the
   agent treats 7% as certain and answers for 7%. Read-back only happens for numbers without a unit or cue.
 - **In-memory sessions.** Conversation state lives in the Flask process and is lost on restart.
-- **No embedding classifier.** An optional fallback hook exists (`agent.register_fallback_classifier`,
-  `config.USE_EMBEDDINGS`), but no model ships with this build, so nothing is claimed for it.
+- **LLM answers are not verified.** `general_ev` replies come from the LLM and are not checked against a
+  knowledge base. The intent eval above measures the rules only, with the LLM fallback off.
 
 ## Project layout
 
@@ -172,6 +195,7 @@ nlu.py            normalize(), Hindi numbers 0-100, slot extraction, token/fuzzy
 tools.py          range, charging time/cost, trip, stations, savings, range-drop diagnosis, troubleshooting text
 config.py         VehicleConfig (all assumptions) and NLU thresholds
 stations.py       synthetic stations, demo routes, place names
+llm_fallback.py   optional free-LLM (Gemini) fallback for turns the rules cannot understand
 app.py            Flask server: /api/voice, /api/text, /api/reset
 gnani.py          Gnani Prisma (STT) and Timbre (TTS) HTTP calls
 noise_test.py     audio robustness test through Prisma (noise + 8 kHz phone line)
