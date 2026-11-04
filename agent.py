@@ -25,30 +25,63 @@ HINDI_NUMBERS = {
     "पैंसठ": 65, "painsath": 65, "सत्तर": 70, "sattar": 70,
     "पचहत्तर": 75, "pachhattar": 75, "अस्सी": 80, "assi": 80,
     "पचासी": 85, "pachasi": 85, "नब्बे": 90, "nabbe": 90,
-    "पंचानवे": 95, "सौ": 100, "sau": 100,
+    "पंचानवे": 95, "panchanve": 95, "सौ": 100, "sau": 100,
 }
+
+PERCENT_WORDS = {"%", "percent", "प्रतिशत", "परसेंट", "पर्सेंट", "pratishat", "persent", "parsent"}
+# Number ke aas-paas ye shabd hon tabhi use charge % maana jaata hai.
+# Isse "saath" (= with), "das", "2 ghante" jaise shabd galti se % nahi bante.
+PERCENT_CONTEXT_WORDS = PERCENT_WORDS | {"charge", "charging", "चार्ज", "चार्जिंग", "battery", "बैटरी"}
 
 
 def _has(text, words):
     return any(w in text for w in words)
 
 
-def extract_percent(text):
-    """Baat mein se charge % nikalta hai. Nahi mila to None."""
+def _tokens(text):
+    return [tok for tok in re.split(r"[\s,.?!।]+", text.lower()) if tok]
+
+
+def _token_number(tok):
+    """Ek shabd ko number banata hai (60 / साठ / saath). Nahi bana to None."""
+    if tok.isdigit():
+        v = int(tok)
+        return v if 0 <= v <= 100 else None
+    return HINDI_NUMBERS.get(tok)
+
+
+def extract_percent(text, lenient=False):
+    """
+    Baat mein se charge % nikalta hai. Nahi mila to None.
+    Number tabhi liya jaata hai jab uske paas % / charge / battery jaisa shabd ho,
+    ya poori baat sirf number ho (jaise sawaal ke jawab mein "saath").
+    lenient=True: bot ne abhi % poochha tha, to koi bhi akela number chalega.
+    """
     t = text.lower()
-    m = re.search(r"(\d{1,3})\s*(?:%|percent|per cent|प्रतिशत|परसेंट|पर्सेंट|pratishat|persent)", t)
+    m = re.search(r"(\d{1,3})\s*(?:%|percent|per cent|प्रतिशत|परसेंट|पर्सेंट|pratishat|persent|parsent)", t)
     if m:
         v = int(m.group(1))
         if 0 <= v <= 100:
             return v
-    for tok in re.split(r"[\s,.?!]+", t):
-        if tok in HINDI_NUMBERS:
-            return HINDI_NUMBERS[tok]
-    m = re.search(r"\b(\d{1,3})\b", t)
-    if m:
-        v = int(m.group(1))
-        if 1 <= v <= 100:
+
+    toks = _tokens(t)
+    numbers = [(i, _token_number(tok)) for i, tok in enumerate(toks)]
+    numbers = [(i, v) for i, v in numbers if v is not None]
+    if not numbers:
+        return None
+
+    for i, v in numbers:
+        nearby = toks[max(0, i - 2): i] + toks[i + 1: i + 3]
+        if any(w in PERCENT_CONTEXT_WORDS for w in nearby):
             return v
+
+    # Sirf number bola (ya number + "hai"/"percent"), jaise "saath" ya "60 hai"
+    fillers = {"hai", "h", "है", "bhaiya", "भैया", "ji", "जी", "abhi", "अभी"}
+    if len(numbers) == 1 and all(tok in fillers for j, tok in enumerate(toks) if j != numbers[0][0]):
+        return numbers[0][1]
+
+    if lenient and len(numbers) == 1:
+        return numbers[0][1]
     return None
 
 
@@ -113,16 +146,23 @@ TROUBLE_FLOWS = {
 }
 
 
-def _trouble_reply(kind, max_steps=3):
+ORDINALS = ["पहला", "दूसरा", "तीसरा", "चौथा", "पाँचवाँ", "छठा", "सातवाँ"]
+
+
+def _trouble_reply(kind, start=0, max_steps=3):
+    """Troubleshooting ke steps, `start` number wale step se. Returns (reply, next_start)."""
     flow = TROUBLE_FLOWS[kind]
-    steps = flow["steps"][:max_steps]
-    ordinals = ["पहला", "दूसरा", "तीसरा"]
-    parts = [f"{flow['title']}, घबराइए मत। ये चीज़ें देखिए।"]
-    for i, s in enumerate(steps):
-        parts.append(f"{ordinals[i]}, {s}")
-    if len(flow["steps"]) > max_steps:
-        parts.append("और भी उपाय हैं, चाहें तो फिर से पूछिए।")
-    return " ".join(parts)
+    steps = flow["steps"][start:start + max_steps]
+    if start == 0:
+        parts = [f"{flow['title']}, घबराइए मत। ये चीज़ें देखिए।"]
+    else:
+        parts = ["और उपाय ये हैं।"]
+    for i, s in enumerate(steps, start=start):
+        parts.append(f"{ORDINALS[i]}, {s}")
+    next_start = start + len(steps)
+    if next_start < len(flow["steps"]):
+        parts.append("और भी उपाय हैं, चाहें तो बोलिए: और बताओ।")
+    return " ".join(parts), next_start
 
 
 # ---------------- Stations ----------------
@@ -147,7 +187,10 @@ def _station_reply(city):
 
 
 # ---------------- Intent samajhna ----------------
-SLOW_WORDS = ["slow", "dheere", "dhire", "dhima", "देर", "धीमा", "धीमी", "धीरे", "der lag", "bahut time", "time lag"]
+# Dhyaan: "kitni der lagegi" / "kitna time lagega" sawaal hain, shikayat nahi. Isliye
+# yahan sirf shikayat wale shabd hain; time ke sawaal TIME_WORDS mein hain.
+SLOW_WORDS = ["slow", "dheere", "dhire", "dhima", "dheema", "धीमा", "धीमी", "धीरे", "bahut der", "बहुत देर",
+              "bahut time", "बहुत टाइम", "bahut samay", "बहुत समय", "jyada time", "ज्यादा समय", "ज़्यादा समय"]
 RANGE_DROP_WORDS = ["range kam", "range ghat", "kam chal", "kam chalti", "kam chalta", "mileage", "average kam",
                     "रेंज कम", "रेंज घट", "कम चल", "माइलेज", "ज्यादा नहीं चल", "jyada nahi chal"]
 NOT_DETECT_WORDS = ["detect", "nahi pakad", "pakad nahi", "charger nahi", "charging nahi", "charge nahi ho",
@@ -161,68 +204,121 @@ RANGE_WORDS = ["kitna chal", "kitni door", "kitna door", "range", "km", "kilomet
 COST_WORDS = ["kharcha", "kharch", "paisa", "paise", "rupay", "rupee", "cost", "खर्चा", "खर्च", "पैसा", "पैसे",
               "रुपये", "रुपए", "kitne ka", "कितने का"]
 TIME_WORDS = ["kitni der", "kitna time", "kitna samay", "ghante", "ghanta", "कितनी देर", "कितना समय",
-              "कितना टाइम", "घंटे", "घंटा", "time lagega", "देर लगेगी"]
+              "कितना टाइम", "घंटे", "घंटा", "time lagega", "time lagta", "der lagegi", "der lagti",
+              "देर लगेगी", "देर लगती", "टाइम लगेगा", "समय लगेगा"]
 CALC_HINT_WORDS = ["charge hai", "charge h", "battery", "बैटरी", "चार्ज है", "percent", "%", "प्रतिशत", "परसेंट"]
-GREETING_WORDS = ["namaste", "namaskar", "hello", "hi ", "नमस्ते", "नमस्कार", "हेलो", "राम राम", "ram ram"]
+GREETING_TOKENS = {"namaste", "namaskar", "hello", "hi", "hey", "helo", "नमस्ते", "नमस्कार", "हेलो", "हाय"}
+GREETING_PHRASES = ["राम राम", "ram ram"]
+MORE_WORDS = ["aur batao", "aur bataiye", "aur upay", "aur kuch", "aage", "more", "और बताओ", "और बताइए",
+              "और उपाय", "और कुछ", "आगे"]
+MORE_TOKENS = {"aur", "और"}
 
 
-def respond(text):
+def _is_greeting(t):
+    return bool(GREETING_TOKENS & set(_tokens(t))) or _has(t, GREETING_PHRASES)
+
+
+def _asks_more(t):
+    toks = _tokens(t)
+    return _has(t, MORE_WORDS) or (bool(toks) and all(tok in MORE_TOKENS for tok in toks))
+
+
+def _calc_reply(pct, wants_range, wants_cost, wants_time):
+    r = calculate(pct)
+    if not (wants_range or wants_cost or wants_time):
+        wants_range = wants_cost = wants_time = True
+    parts = [f"अभी {r['percent']} प्रतिशत चार्ज है।"]
+    if wants_range:
+        parts.append(f"इस पर करीब {r['range_km']} किलोमीटर चलेगा।")
+    if r["percent"] >= 100:
+        parts.append("बैटरी पूरी भरी हुई है।")
+    else:
+        if wants_time:
+            parts.append(f"पूरा चार्ज होने में लगभग {r['time_text']} लगेंगे।")
+        if wants_cost:
+            parts.append(f"खर्चा करीब {r['cost_rs']} रुपये आएगा।")
+    parts.append("रास्ते और सवारी के हिसाब से थोड़ा कम या ज़्यादा हो सकता है।")
+    return {"intent": "calculator", "reply": " ".join(parts), "calc": r, "state": None}
+
+
+def _trouble(kind, start=0):
+    reply, next_start = _trouble_reply(kind, start)
+    state = None
+    if next_start < len(TROUBLE_FLOWS[kind]["steps"]):
+        state = {"pending": "trouble_more", "kind": kind, "next": next_start}
+    return {"intent": f"trouble_{kind}", "reply": reply, "state": state}
+
+
+def respond(text, state=None):
     """
-    Driver ki baat (text) -> {"intent": ..., "reply": ...}
+    Driver ki baat (text) + pichhli baat ka state -> {"intent", "reply", "state", ...}
+
+    `state` ek chhota dict hai jo pichhle jawab ne lautaya tha (ya None). Isse bot
+    follow-up samajhta hai, jaise:
+      bot: "कितने प्रतिशत चार्ज है?"   driver: "saath"   -> calculation poori
+      bot: "और भी उपाय हैं..."          driver: "aur batao" -> agle steps
+    Jawab ka "state" agli baar wapas bhejiye.
     """
+    state = state if isinstance(state, dict) else {}
+    pending = state.get("pending")
     t = (text or "").strip().lower()
     if not t:
         return {"intent": "empty",
-                "reply": "मुझे आवाज़ साफ़ नहीं सुनाई दी। कृपया दोबारा बोलिए।"}
+                "reply": "मुझे आवाज़ साफ़ नहीं सुनाई दी। कृपया दोबारा बोलिए।",
+                "state": state or None}
 
-    # 1) Troubleshooting (sabse pehle, kyunki "charge nahi" jaise words calculator se milte hain)
-    if _has(t, NOT_DETECT_WORDS) and not _has(t, STATION_WORDS):
-        return {"intent": "trouble_not_detecting", "reply": _trouble_reply("not_detecting")}
-    if _has(t, RANGE_DROP_WORDS):
-        return {"intent": "trouble_range_drop", "reply": _trouble_reply("range_drop")}
-    if _has(t, SLOW_WORDS) and ("charg" in t or "चार्ज" in t):
-        return {"intent": "trouble_slow_charging", "reply": _trouble_reply("slow_charging")}
+    # 0) Follow-up: pichhle sawaal ka jawab
+    if pending == "need_percent" and not find_city(t) and not _has(t, STATION_WORDS):
+        pct = extract_percent(t, lenient=True)
+        if pct is not None:
+            wants = state.get("wants") or {}
+            return _calc_reply(pct,
+                               wants.get("range") or _has(t, RANGE_WORDS),
+                               wants.get("cost") or _has(t, COST_WORDS),
+                               wants.get("time") or _has(t, TIME_WORDS))
+    if pending == "trouble_more" and _asks_more(t) and state.get("kind") in TROUBLE_FLOWS:
+        return _trouble(state["kind"], int(state.get("next", 0)))
 
-    # 2) Station dhundna
-    city = find_city(t)
-    if _has(t, STATION_WORDS) or (city and not extract_percent(t)):
-        return {"intent": "stations", "reply": _station_reply(city), "city": city}
-
-    # 3) Calculator
     pct = extract_percent(t)
     wants_range = _has(t, RANGE_WORDS)
     wants_cost = _has(t, COST_WORDS)
     wants_time = _has(t, TIME_WORDS)
+
+    # 1) Troubleshooting (sabse pehle, kyunki "charge nahi" jaise words calculator se milte hain)
+    if _has(t, NOT_DETECT_WORDS) and not _has(t, STATION_WORDS):
+        return _trouble("not_detecting")
+    if _has(t, RANGE_DROP_WORDS):
+        return _trouble("range_drop")
+    if _has(t, SLOW_WORDS) and ("charg" in t or "चार्ज" in t) and not (pct is not None and wants_time):
+        return _trouble("slow_charging")
+
+    # 2) Station dhundna
+    city = find_city(t)
+    if _has(t, STATION_WORDS) or (city and pct is None):
+        return {"intent": "stations", "reply": _station_reply(city), "city": city,
+                "state": {"pending": "city"} if city is None else None}
+
+    # 3) Calculator
     if pct is not None and (wants_range or wants_cost or wants_time or _has(t, CALC_HINT_WORDS)):
-        r = calculate(pct)
-        if not (wants_range or wants_cost or wants_time):
-            wants_range = wants_cost = wants_time = True
-        parts = [f"अभी {r['percent']} प्रतिशत चार्ज है।"]
-        if wants_range:
-            parts.append(f"इस पर करीब {r['range_km']} किलोमीटर चलेगा।")
-        if r["percent"] >= 100:
-            parts.append("बैटरी पूरी भरी हुई है।")
-        else:
-            if wants_time:
-                parts.append(f"पूरा चार्ज होने में लगभग {r['time_text']} लगेंगे।")
-            if wants_cost:
-                parts.append(f"खर्चा करीब {r['cost_rs']} रुपये आएगा।")
-        parts.append("रास्ते और सवारी के हिसाब से थोड़ा कम या ज़्यादा हो सकता है।")
-        return {"intent": "calculator", "reply": " ".join(parts), "calc": r}
+        return _calc_reply(pct, wants_range, wants_cost, wants_time)
 
     # 4) Charge % nahi bataya par poochha
     if wants_range or wants_cost or wants_time:
         return {"intent": "need_percent",
-                "reply": "अभी बैटरी कितने प्रतिशत चार्ज है? प्रतिशत बताइए, जैसे साठ प्रतिशत।"}
+                "reply": "अभी बैटरी कितने प्रतिशत चार्ज है? प्रतिशत बताइए, जैसे साठ प्रतिशत।",
+                "state": {"pending": "need_percent",
+                          "wants": {"range": wants_range, "cost": wants_cost, "time": wants_time}}}
 
     # 5) Namaste
-    if _has(t, GREETING_WORDS):
+    if _is_greeting(t):
         return {"intent": "greeting",
-                "reply": "नमस्ते भैया! मैं आपका ई-रिक्शा सहायक हूँ। चार्ज के हिसाब से रेंज और खर्चा, चार्जिंग की दिक्कत, या पास का चार्जिंग पॉइंट, कुछ भी पूछिए।"}
+                "reply": "नमस्ते भैया! मैं आपका ई-रिक्शा सहायक हूँ। चार्ज के हिसाब से रेंज और खर्चा, चार्जिंग की दिक्कत, या पास का चार्जिंग पॉइंट, कुछ भी पूछिए।",
+                "state": None}
 
-    # 6) Samajh nahi aaya
+    # 6) Samajh nahi aaya. Pichhla sawaal abhi bhi khula hai to state rakhte hain.
     return {"intent": "fallback",
-            "reply": "माफ़ कीजिए, मैं समझ नहीं पाया। आप पूछ सकते हैं: साठ प्रतिशत चार्ज है, कितना चलेगा और कितना खर्चा आएगा? या, चार्जिंग धीमी क्यों है? या, जयपुर में चार्जिंग पॉइंट कहाँ है?"}
+            "reply": "माफ़ कीजिए, मैं समझ नहीं पाया। आप पूछ सकते हैं: साठ प्रतिशत चार्ज है, कितना चलेगा और कितना खर्चा आएगा? या, चार्जिंग धीमी क्यों है? या, जयपुर में चार्जिंग पॉइंट कहाँ है?",
+            "state": state or None}
 
 
 if __name__ == "__main__":
@@ -238,7 +334,10 @@ if __name__ == "__main__":
         "namaste",
         "pizza chahiye",
     ]
+    tests += ["kitna kharcha aayega", "saath", "charging bahut slow hai", "aur batao"]
+    state = None
     for q in tests:
-        r = respond(q)
+        r = respond(q, state)
+        state = r.get("state")
         print("Q:", q)
         print("  ->", r["intent"], "|", r["reply"], "\n")

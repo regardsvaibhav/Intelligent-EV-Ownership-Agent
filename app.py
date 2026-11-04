@@ -5,12 +5,16 @@ Flow: awaaz -> Prisma -> agent -> Timbre -> awaaz
 import base64
 import time
 import os
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, session
 
 import agent
 import gnani
 
 app = Flask(__name__)
+# Baatcheet ka state (follow-up sawaal) signed cookie mein rehta hai.
+# Production mein FLASK_SECRET_KEY set karo, warna har restart par purani baat bhool jaayega
+# aur kai gunicorn workers aapas mein state share nahi karenge.
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32)
 
 
 @app.route("/")
@@ -19,7 +23,8 @@ def home():
 
 
 def _run(text):
-    result = agent.respond(text)
+    result = agent.respond(text, session.get("agent_state"))
+    session["agent_state"] = result.get("state")
     out = {"transcript": text, "intent": result["intent"], "reply": result["reply"]}
     t0 = time.time()
     try:
@@ -49,7 +54,10 @@ def voice():
 
 @app.route("/api/text", methods=["POST"])
 def text_chat():
-    text = (request.get_json(silent=True) or {}).get("text", "")
+    body = request.get_json(silent=True)
+    text = body.get("text", "") if isinstance(body, dict) else ""
+    if not isinstance(text, str):
+        return jsonify({"error": "text string hona chahiye."}), 400
     return jsonify(_run(text))
 
 
