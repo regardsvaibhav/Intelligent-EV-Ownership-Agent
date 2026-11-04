@@ -60,8 +60,12 @@ Reply with ONLY a JSON object, no other text:
 - trouble_range_drop: complaint that the vehicle now goes less distance than before.
 - trouble_not_detecting: the charger does not start, connect or show a light.
 - greeting: hello / namaste with no question.
-- safety: smoke, sparks, burning smell, heat, swelling battery, electric shock, fire, water inside the battery.
-- general_ev: any other question about owning, driving, charging or maintaining an electric rickshaw.
+- safety: ONLY when the driver says a dangerous thing is happening or just happened to their vehicle or charger
+  right now: smoke, sparks, burning smell, fire, battery or charger very hot or swelling, electric shock,
+  water that has already got into the battery or charger. Questions, "can I...?", "is it safe to...?" and
+  general talk about rain, heat or weather are NOT safety: use general_ev for them.
+- general_ev: any other question about owning, driving, charging or maintaining an electric rickshaw,
+  including "can I drive in rain / flooded road / heat", battery care, servicing, tyres, load.
 - other: anything unrelated to the vehicle.
 
 "percent" (battery charge 0-100, integer), "km" (distance, number) and "city" (one of {", ".join(CITIES)}):
