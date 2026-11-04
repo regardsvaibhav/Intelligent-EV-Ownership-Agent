@@ -2,203 +2,609 @@
 <html lang="hi">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#22262b">
 <title>ई-रिक्शा सहायक</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
+  /* Asphalt, rickshaw yellow, and the green of an Indian EV number plate */
   :root{
-    --road:#22262b; --road-2:#2f343b; --signal:#f2c200; --leaf:#1e7a4c;
-    --paper:#f3f4f1; --ink:#16181b; --warn:#b3261e;
+    --road:#22262b; --road-2:#343a41; --signal:#f2c200; --plate:#1e7a4c; --plate-ink:#ffffff;
+    --leaf-soft:#e3f1e9; --paper:#f3f4f1; --card:#ffffff; --ink:#16181b; --muted:#5d636b; --line:#d9dbd5;
+    --warn:#b3261e; --warn-soft:#fbe9e7; --amber:#c77700; --amber-soft:#fff3d6;
+    --focus:#f2c200; --dock:#ffffff;
+  }
+  /* Sun mode: black and yellow for direct sunlight */
+  :root[data-theme="sun"]{
+    --road:#000; --road-2:#1b1b1b; --signal:#ffe14d; --paper:#000; --card:#111; --ink:#fff; --muted:#e7e7e7;
+    --line:#ffe14d; --leaf-soft:#0d2e1d; --warn-soft:#3a0f0c; --amber-soft:#3a2c00; --dock:#000; --focus:#fff;
   }
   *{box-sizing:border-box}
-  html,body{margin:0}
-  body{font-family:"Baloo 2","Noto Sans Devanagari",system-ui,sans-serif;background:var(--paper);color:var(--ink);
-       min-height:100vh;display:flex;flex-direction:column;align-items:center}
-  header{width:100%;background:var(--road);color:var(--paper);padding:22px 20px 26px;border-bottom:6px solid var(--signal)}
-  header h1{margin:0;font-size:2rem;font-weight:800;line-height:1.1}
-  header p{margin:6px 0 0;opacity:.8;font-size:1.05rem}
-  main{width:100%;max-width:640px;padding:22px 18px 60px}
-  .mic-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;margin:8px 0 22px}
-  #mic{width:132px;height:132px;border-radius:50%;border:none;cursor:pointer;background:var(--leaf);color:#fff;
-       font:800 1.15rem "Baloo 2",sans-serif;box-shadow:0 0 0 8px rgba(30,122,76,.18);transition:transform .12s}
-  #mic:active{transform:scale(.96)}
-  #mic:focus-visible,.chip:focus-visible,#send:focus-visible,input[type=file]:focus-visible{outline:3px solid var(--signal);outline-offset:3px}
-  #mic.rec{background:var(--warn);box-shadow:0 0 0 8px rgba(179,38,30,.2)}
-  #status{min-height:1.6em;font-size:1.05rem;color:#444;text-align:center}
-  .chat{display:flex;flex-direction:column;gap:12px}
-  .bubble{padding:12px 16px;border-radius:14px;font-size:1.15rem;line-height:1.5;max-width:92%}
-  .you{align-self:flex-end;background:var(--signal);border-bottom-right-radius:4px}
-  .bot{align-self:flex-start;background:var(--road);color:var(--paper);border-bottom-left-radius:4px}
-  .err{align-self:stretch;background:#fbe9e7;color:var(--warn);border:1px solid var(--warn);max-width:100%}
-  .meta{font-size:.85rem;opacity:.75;margin-top:6px}
-  audio{width:100%;margin-top:10px}
-  section.tools{margin-top:30px;border-top:2px solid #d9dbd5;padding-top:18px}
-  section.tools h2{font-size:1.1rem;margin:0 0 10px}
-  .chips{display:flex;flex-wrap:wrap;gap:8px}
-  .chip{border:2px solid var(--road);background:#fff;border-radius:999px;padding:6px 14px;font:600 1rem "Baloo 2",sans-serif;cursor:pointer}
-  .chip:hover{background:var(--signal)}
-  .row{display:flex;gap:8px;margin-top:12px}
-  input[type=text]{flex:1;padding:10px 12px;font:1.05rem "Baloo 2",sans-serif;border:2px solid var(--road);border-radius:10px}
-  #send{background:var(--road);color:#fff;border:none;border-radius:10px;padding:0 18px;font:600 1rem "Baloo 2",sans-serif;cursor:pointer}
-  label.file{display:block;margin-top:14px;font-size:1rem}
-  @media (prefers-reduced-motion:reduce){#mic{transition:none}}
+  html,body{margin:0;background:var(--paper);color:var(--ink)}
+  body{font-family:"Baloo 2","Noto Sans Devanagari",system-ui,sans-serif;font-size:18px;line-height:1.45;
+       min-height:100dvh;display:flex;justify-content:center;-webkit-tap-highlight-color:transparent}
+  .app{width:100%;max-width:480px;min-height:100dvh;display:flex;flex-direction:column;position:relative}
+  button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+  button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+  .ic{display:inline-flex;flex:none;width:24px;height:24px}.ic svg{width:100%;height:100%}
+
+  /* App bar */
+  .bar{background:var(--road);color:#fff;padding:14px 16px 12px;border-bottom:5px solid var(--signal);
+       display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
+  .bar h1{margin:0;font-size:24px;font-weight:800;line-height:1.1;flex:1}
+  .barbtn{height:44px;min-width:44px;padding:0 12px;border-radius:12px;background:var(--road-2);color:#fff;display:flex;
+          align-items:center;gap:6px;font-size:15px;font-weight:600}
+  :root[data-theme="sun"] .barbtn[aria-pressed="true"]{background:var(--signal);color:#000}
+
+  /* Memory, drawn as green EV number plates */
+  .plates{display:flex;gap:8px;padding:10px 16px;flex-wrap:wrap;background:var(--card);border-bottom:1.5px solid var(--line)}
+  .plates[hidden]{display:none}
+  .plate{display:inline-flex;align-items:center;gap:6px;background:var(--plate);color:var(--plate-ink);border-radius:7px;
+         padding:3px 12px;font-weight:800;font-size:17px;letter-spacing:.02em;box-shadow:inset 0 0 0 2px rgba(255,255,255,.75),
+         0 0 0 1.5px var(--plate)}
+  .plate .ic{width:18px;height:18px}
+  .plates .hint{font-size:13px;color:var(--muted);align-self:center}
+
+  main{flex:1;padding:16px 16px 150px;display:flex;flex-direction:column;gap:14px}
+
+  /* Answer card */
+  .card{background:var(--card);border:1.5px solid var(--line);border-radius:22px;padding:18px}
+  .card h2{margin:0 0 6px;font-size:21px;line-height:1.25}
+  .muted{color:var(--muted);font-size:15px}
+  .big{font-size:76px;font-weight:800;line-height:1}
+  .row{display:flex;align-items:center;gap:10px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .action{min-height:64px;border-radius:18px;font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;
+          gap:8px;padding:8px 12px;text-align:center;line-height:1.2}
+  .a-yes{background:var(--plate);color:#fff}
+  .a-no{background:var(--card);color:var(--warn);border:3px solid var(--warn)}
+  .a-main{background:var(--signal);color:#16181b}
+  .a-dark{background:var(--road);color:#fff}
+  :root[data-theme="sun"] .a-dark{background:#fff;color:#000}
+  .a-soft{background:var(--paper);color:var(--ink);border:2px solid var(--line)}
+  .choice{min-height:58px;border-radius:14px;background:var(--paper);border:2px solid var(--line);font-size:19px;font-weight:800}
+
+  /* Gauge */
+  .battery{position:relative;height:84px;border:6px solid var(--ink);border-radius:18px;padding:6px;margin:6px 22px 6px 0}
+  .battery::after{content:"";position:absolute;right:-18px;top:22px;width:10px;height:28px;background:var(--ink);border-radius:0 6px 6px 0}
+  .battery .fill{height:100%;border-radius:9px;background:var(--plate);transition:width .6s ease}
+  .battery .fill.low{background:var(--warn)}.battery .fill.mid{background:var(--amber)}
+  .battery span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:28px;font-weight:800;color:#fff;
+                background:rgba(22,24,27,.72);border-radius:12px;padding:0 12px;line-height:1.35}
+  .km{display:flex;align-items:baseline;gap:8px;margin-top:6px}
+  .km .unit{font-size:28px;font-weight:800}
+  .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-top:1.5px solid var(--line);margin-top:12px;padding-top:12px}
+  .facts b{display:block;font-size:19px;line-height:1.2}.facts small{font-size:13px;color:var(--muted)}
+
+  /* Trip */
+  .route{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:800}
+  .route i{flex:1;border-top:3px dashed var(--muted)}
+  .lights{display:flex;gap:12px;background:#22262b;border-radius:40px;padding:9px 14px;width:max-content;margin:12px 0 6px}
+  .lights b{width:40px;height:40px;border-radius:50%;opacity:.22}
+  .lights .r{background:#ff4a3d}.lights .y{background:#ffc400}.lights .g{background:#2fd27a}
+  .lights b.on{opacity:1;box-shadow:0 0 16px 3px currentColor}
+  .lights .r.on{color:#ff4a3d}.lights .y.on{color:#ffc400}.lights .g.on{color:#2fd27a}
+  .verdict{font-size:28px;font-weight:800;line-height:1.15}
+  .v-yes{color:var(--plate)}.v-borderline{color:var(--amber)}.v-no{color:var(--warn)}
+  :root[data-theme="sun"] .v-yes{color:#2fd27a}
+  .meter{display:grid;gap:3px;margin-top:10px}
+  .meter .track{height:14px;border-radius:7px;background:var(--paper);overflow:hidden;border:1px solid var(--line)}
+  .meter .track i{display:block;height:100%;border-radius:7px}
+  .todo{display:flex;gap:10px;align-items:flex-start;background:var(--paper);border-radius:14px;padding:10px 12px;margin-top:10px;font-size:16px}
+  .todo .ic{color:var(--plate);margin-top:2px}
+
+  /* Stations */
+  .st{display:flex;gap:12px;align-items:center;border:1.5px solid var(--line);border-radius:16px;padding:12px;margin-top:10px}
+  .st.best{border:3px solid var(--plate)}
+  .st .name{font-size:19px;font-weight:800;line-height:1.2}
+  .st .price{margin-left:auto;text-align:right}.st .price b{font-size:26px;line-height:1;display:block}
+  .tag{display:inline-block;font-size:13px;font-weight:700;padding:1px 9px;border-radius:999px;margin:3px 4px 0 0}
+  .t-best{background:var(--plate);color:#fff}.t-24{background:#22262b;color:#f2c200}
+  .t-demo{background:var(--paper);color:var(--muted);border:1px dashed var(--muted)}
+
+  /* Savings */
+  .bars{display:grid;gap:8px;margin-top:10px}
+  .bars .b{display:grid;grid-template-columns:110px 1fr 56px;gap:8px;align-items:center;font-size:15px}
+  .bars .b b{text-align:right}
+  .bars .track{height:16px;border-radius:8px;background:var(--paper);overflow:hidden}
+  .bars .track i{display:block;height:100%;background:#9aa0a6;border-radius:8px}
+  .bars .mine .track i{background:var(--plate)}
+  .month{display:flex;justify-content:space-between;align-items:center;background:var(--road);color:#fff;border-radius:16px;
+         padding:12px 16px;margin-top:12px}
+  .month b{font-size:26px;color:var(--signal)}
+
+  /* Troubleshooting */
+  .steps{display:flex;gap:6px;margin:8px 0 10px}
+  .steps i{flex:1;height:8px;border-radius:4px;background:var(--line)}
+  .steps i.done{background:var(--plate)}.steps i.now{background:var(--signal)}
+  .steptext{font-size:22px;font-weight:600;line-height:1.4;margin:6px 0 14px}
+
+  /* Quick actions (first screen) */
+  .greet{font-size:26px;font-weight:800;line-height:1.2;margin:4px 0 0}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .tile{min-height:96px;border-radius:20px;background:var(--card);border:2px solid var(--line);display:flex;flex-direction:column;
+        align-items:flex-start;justify-content:space-between;padding:12px 14px;text-align:left;font-size:19px;font-weight:800;line-height:1.2}
+  .tile .ic{width:30px;height:30px;color:var(--plate)}
+  :root[data-theme="sun"] .tile .ic{color:var(--signal)}
+  .tile.wide{grid-column:1/-1;min-height:72px;flex-direction:row;align-items:center;gap:12px;justify-content:flex-start}
+
+  /* Spoken reply */
+  .reply{display:flex;gap:10px;align-items:flex-start;background:var(--road);color:#fff;border-radius:18px;padding:12px 12px 12px 16px}
+  :root[data-theme="sun"] .reply{background:#111;border:2px solid var(--signal)}
+  .reply p{margin:0;flex:1;font-size:19px;line-height:1.45}
+  .reply button{width:48px;height:48px;border-radius:14px;background:var(--signal);color:#16181b;display:flex;align-items:center;justify-content:center}
+  .heard{align-self:flex-end;background:var(--signal);color:#16181b;border-radius:16px;border-bottom-right-radius:4px;padding:6px 14px;
+         font-size:17px;max-width:90%}
+  .note{font-size:14px;color:var(--muted);text-align:center}
+  .err{background:var(--warn-soft);color:var(--warn);border:1.5px solid var(--warn);border-radius:14px;padding:10px 14px;font-size:16px}
+  :root[data-theme="sun"] .err{color:#ff8a80}
+
+  details.history{font-size:15px;color:var(--muted)}
+  details.history summary{min-height:44px;display:flex;align-items:center;font-weight:600;cursor:pointer}
+  .hist{display:grid;gap:6px;margin-top:6px}
+  .hist div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px;color:var(--ink)}
+  .hist .u{font-weight:800}
+
+  /* Bottom dock with the mic */
+  .dock{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--dock);
+        border-top:1.5px solid var(--line);padding:10px 16px calc(14px + env(safe-area-inset-bottom));z-index:6}
+  .dockrow{display:flex;align-items:center;justify-content:space-between}
+  .side{width:60px;height:60px;border-radius:18px;background:var(--paper);border:2px solid var(--line);display:flex;
+        align-items:center;justify-content:center}
+  .mic{width:96px;height:96px;margin-top:-34px;border-radius:50%;background:var(--plate);color:#fff;display:flex;flex-direction:column;
+       align-items:center;justify-content:center;font-size:17px;font-weight:800;box-shadow:0 0 0 8px var(--dock),0 0 0 14px rgba(30,122,76,.18)}
+  .mic .ic{width:40px;height:40px}
+  .mic.rec{background:var(--warn);box-shadow:0 0 0 8px var(--dock),0 0 0 14px rgba(179,38,30,.22)}
+  .mic.busy{background:var(--muted)}
+  .typed{display:flex;gap:8px;margin-top:10px}
+  .typed[hidden]{display:none}
+  .typed input{flex:1;min-width:0;height:52px;border-radius:14px;border:2px solid var(--line);background:var(--card);color:var(--ink);
+               font:inherit;font-size:18px;padding:0 14px}
+  .typed button{height:52px;padding:0 18px;border-radius:14px;background:var(--road);color:#fff;font-weight:800}
+  :root[data-theme="sun"] .typed button{background:var(--signal);color:#000}
+
+  /* Listening sheet */
+  .listen{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;z-index:9}
+  .listen[hidden]{display:none}
+  .sheet{width:100%;max-width:480px;background:var(--card);border-radius:26px 26px 0 0;padding:14px 18px calc(22px + env(safe-area-inset-bottom));
+         display:flex;flex-direction:column;gap:12px;align-items:center}
+  .grab{width:44px;height:5px;border-radius:3px;background:var(--line)}
+  .listen canvas{width:100%;height:110px}
+  .listen .timer{font-size:16px;color:var(--muted)}
+  .stopbtn{width:100%;height:68px;border-radius:20px;background:var(--warn);color:#fff;font-size:22px;font-weight:800;display:flex;
+           align-items:center;justify-content:center;gap:10px}
+
+  /* Safety alarm */
+  .alarm{position:fixed;inset:0;background:var(--warn);color:#fff;z-index:10;display:flex;justify-content:center;overflow:auto}
+  .alarm[hidden]{display:none}
+  .alarm .in{width:100%;max-width:480px;padding:28px 20px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
+  .alarm .sign{width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;align-self:center}
+  .alarm .sign .ic{width:70px;height:70px}
+  .alarm h2{margin:0;font-size:54px;line-height:1;text-align:center}
+  .alarm .do{display:flex;align-items:center;gap:12px;background:#fff;color:#16181b;border-radius:18px;padding:14px 16px;font-size:20px;font-weight:800;line-height:1.25}
+  .alarm .do .ic{color:var(--warn);width:32px;height:32px}
+  .alarm a.call{display:flex;align-items:center;justify-content:center;gap:10px;height:72px;border-radius:20px;background:#f2c200;color:#16181b;
+                font-size:23px;font-weight:800;text-decoration:none;margin-top:6px}
+  .alarm .close{height:56px;border-radius:16px;border:2px solid rgba(255,255,255,.7);color:#fff;font-size:18px;font-weight:600}
+
+  @media (max-width:360px){
+    .bar h1{font-size:21px}
+    .barbtn .lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+    .tile{font-size:17px}
+  }
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
-<header>
-  <h1>ई-रिक्शा सहायक</h1>
-  <p>बटन दबाकर बोलिए। रेंज, खर्चा, चार्जिंग की दिक्कत, चार्जिंग पॉइंट।</p>
-</header>
-<main>
-  <div class="mic-wrap">
-    <button id="mic" aria-label="बोलना शुरू करें">बोलिए</button>
-    <div id="status" role="status" aria-live="polite">बटन दबाइए, बोलिए, फिर दोबारा दबाइए।</div>
+<div class="app">
+  <header class="bar">
+    <h1>ई-रिक्शा सहायक</h1>
+    <button class="barbtn" id="sun" aria-pressed="false" aria-label="धूप मोड"><span class="ic" data-i="sun"></span><span class="lbl">धूप</span></button>
+    <button class="barbtn" id="reset" aria-label="नई बात शुरू करें"><span class="ic" data-i="refresh"></span><span class="lbl">नई बात</span></button>
+  </header>
+
+  <div class="plates" id="plates" hidden aria-label="जो याद है"></div>
+
+  <main id="main">
+    <div id="stage"></div>
+    <div id="reply" aria-live="polite"></div>
+    <details class="history" id="history">
+      <summary>पिछली बातें</summary>
+      <div class="hist" id="hist"></div>
+      <p class="note">रिकॉर्ड की हुई आवाज़ से जांचना हो तो फ़ाइल चुनिए:
+        <input type="file" id="file" accept="audio/*" aria-label="ऑडियो फ़ाइल चुनें"></p>
+    </details>
+  </main>
+
+  <nav class="dock" aria-label="बोलने के बटन">
+    <div class="dockrow">
+      <button class="side" id="kbd" aria-label="लिखकर पूछें" aria-expanded="false"><span class="ic" data-i="kbd"></span></button>
+      <button class="mic" id="mic" aria-label="बोलना शुरू करें"><span class="ic" data-i="mic"></span><span id="micText">बोलिए</span></button>
+      <button class="side" id="replay" aria-label="जवाब फिर से सुनें" disabled><span class="ic" data-i="speaker"></span></button>
+    </div>
+    <form class="typed" id="typed" hidden>
+      <input id="typedInput" type="text" placeholder="यहां लिखिए" aria-label="सवाल लिखिए" autocomplete="off">
+      <button type="submit">भेजें</button>
+    </form>
+  </nav>
+</div>
+
+<div class="listen" id="listen" hidden role="dialog" aria-label="सुन रहा हूं">
+  <div class="sheet">
+    <div class="grab"></div>
+    <div style="font-size:20px;font-weight:800">सुन रहा हूं…</div>
+    <canvas id="wave" width="800" height="220" aria-hidden="true"></canvas>
+    <div class="timer" id="timer">0 सेकंड</div>
+    <button class="stopbtn" id="stop"><span class="ic" data-i="check"></span>बोल दिया</button>
   </div>
+</div>
 
-  <div class="chat" id="chat"></div>
-
-  <section class="tools">
-    <h2>बोल नहीं सकते? ये आज़माइए</h2>
-    <div class="chips" id="chips">
-      <button class="chip" data-q="Bhaiya, 60% charge hai, kitna chalega aur charge mein kitna kharcha aayega?">60% चार्ज, कितना चलेगा?</button>
-      <button class="chip" data-q="meri charging bahut slow ho rahi hai">चार्जिंग धीमी</button>
-      <button class="chip" data-q="range kam ho gayi hai">रेंज कम हो गई</button>
-      <button class="chip" data-q="charger detect nahi kar raha">चार्जर डिटेक्ट नहीं</button>
-      <button class="chip" data-q="Jaipur mein charging station kahan hai">जयपुर चार्जिंग पॉइंट</button>
-    </div>
-    <div class="row">
-      <input type="text" id="typed" placeholder="यहाँ लिखिए" aria-label="सवाल लिखें">
-      <button id="send">भेजें</button>
-    </div>
-    <label class="file">या रिकॉर्ड की हुई ऑडियो फ़ाइल चुनिए (noise test के लिए):
-      <input type="file" id="file" accept="audio/*">
-    </label>
-  </section>
-</main>
+<div class="alarm" id="alarm" hidden role="alertdialog" aria-labelledby="alarmH">
+  <div class="in">
+    <div class="sign"><span class="ic" data-i="warn"></span></div>
+    <h2 id="alarmH">खतरा!</h2>
+    <div class="do"><span class="ic" data-i="power"></span>तुरंत मेन स्विच से चार्जर बंद कीजिए</div>
+    <div class="do"><span class="ic" data-i="hand"></span>चार्जर और तार को हाथ मत लगाइए</div>
+    <div class="do"><span class="ic" data-i="drop"></span>पानी से दूर रहिए</div>
+    <a class="call" href="tel:"><span class="ic" data-i="phone"></span>मैकेनिक को कॉल करें</a>
+    <button class="close" id="alarmClose">मैं सुरक्षित हूं, बंद करें</button>
+  </div>
+</div>
 
 <script>
-const micBtn = document.getElementById('mic');
-const statusEl = document.getElementById('status');
-const chat = document.getElementById('chat');
-let recorder = null, chunks = [], stream = null;
+const ICONS = {
+  mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>',
+  pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/></svg>',
+  bat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/><rect x="4.5" y="9.5" width="9" height="5" fill="currentColor" stroke="none"/></svg>',
+  users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M17.5 14.5c2 .3 3.4 1.8 4 4.5"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3L2 20h20L12 3z"/><path d="M12 10v4" stroke-linecap="round"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg>',
+  speaker:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>',
+  wrench:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0 5 5L21 13l-8 8-3.5-3.5 8-8-1.3-1.2zM3 21l6-6"/></svg>',
+  bolt:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg>',
+  power:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 3v9M6.3 6.5a8 8 0 1 0 11.4 0"/></svg>',
+  hand:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 13V5a1.5 1.5 0 0 1 3 0v6M11 11V3.5a1.5 1.5 0 0 1 3 0V11M14 11V5a1.5 1.5 0 0 1 3 0v8c0 4-2.5 8-7 8-3 0-5-2-6.5-5L2 12.5a1.5 1.5 0 0 1 2.5-1.5L8 15"/><path d="M3 3l18 18"/></svg>',
+  drop:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/><path d="M3 3l18 18" stroke-linecap="round"/></svg>',
+  phone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z"/></svg>',
+  sun:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  rupee:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12M6 9h12M6 4h3a5 5 0 0 1 0 10H6l9 7"/></svg>',
+  kbd:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M6 9h1M10 9h1M14 9h1M18 9h0M6 13h1M10 13h4M18 13h0M8 16h8"/></svg>',
+  refresh:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.2L3 16M3 21v-5h5"/></svg>',
+  route:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8 17c6 0 2-10 8-10"/></svg>',
+};
+const icon = (n) => `<span class="ic">${ICONS[n] || ""}</span>`;
+document.querySelectorAll("[data-i]").forEach(el => { el.innerHTML = ICONS[el.dataset.i] || ""; });
 
-function say(msg){ statusEl.textContent = msg; }
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const newId = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+  : Date.now().toString(16) + "-" + Math.random().toString(16).slice(2, 12);
+let SESSION_ID = newId();
+let lastAudio = null, busy = false, ttsWarned = false;
 
-function addBubble(text, cls, meta){
-  const d = document.createElement('div');
-  d.className = 'bubble ' + cls;
-  d.textContent = text;
-  if (meta){ const m = document.createElement('div'); m.className = 'meta'; m.textContent = meta; d.appendChild(m); }
-  chat.appendChild(d);
-  d.scrollIntoView({behavior:'smooth', block:'end'});
-  return d;
+/* ---------- Sun mode (remembered on this phone only) ---------- */
+function setSun(on){
+  document.documentElement.dataset.theme = on ? "sun" : "";
+  $("sun").setAttribute("aria-pressed", on ? "true" : "false");
+  try { localStorage.setItem("sun", on ? "1" : "0"); } catch(e) {}
+}
+try { setSun(localStorage.getItem("sun") === "1"); } catch(e) {}
+$("sun").onclick = () => setSun(document.documentElement.dataset.theme !== "sun");
+
+/* ---------- Cards ---------- */
+const PROBLEMS = [
+  ["चार्जिंग धीमी है", "चार्जिंग बहुत धीमी हो रही है"],
+  ["चार्जर नहीं पकड़ रहा", "चार्जर डिटेक्ट नहीं कर रहा"],
+  ["रेंज कम हो गई", "रेंज कम हो गई है"],
+];
+const say = (label, text, cls = "a-soft") => `<button class="action ${cls}" data-say="${esc(text)}">${label}</button>`;
+
+function homeCard(){
+  return `<p class="greet">नमस्ते भैया! क्या जानना है?</p>
+  <p class="muted" style="margin:0">नीचे हरा बटन दबाकर बोलिए, या कोई बटन चुनिए।</p>
+  <div class="tiles" style="margin-top:12px">
+    <button class="tile" data-say="कितना चलेगा">${icon("bat")}कितना चलेगा?</button>
+    <button class="tile" data-say="पहुंच जाऊंगा?">${icon("route")}पहुंच जाऊंगा?</button>
+    <button class="tile" data-say="चार्जिंग स्टेशन कहां है">${icon("pin")}चार्जिंग पॉइंट</button>
+    <button class="tile" data-say="आज कितना बचा">${icon("rupee")}आज की बचत</button>
+    <button class="tile wide" data-local="problems">${icon("wrench")}चार्जिंग या गाड़ी में दिक्कत</button>
+  </div>`;
 }
 
-function showResult(data){
-  if (data.error){ addBubble(data.error, 'err'); say('कुछ गड़बड़ हुई।'); return; }
-  if (data.transcript) addBubble(data.transcript, 'you',
-      data.stt_seconds ? 'सुना गया (' + data.stt_seconds + ' सेकंड)' : '');
-  const meta = data.tts_seconds ? 'आवाज़ बनने में ' + data.tts_seconds + ' सेकंड' : '';
-  const bubble = addBubble(data.reply, 'bot', meta);
-  if (data.tts_error){ addBubble('आवाज़ नहीं बन पाई: ' + data.tts_error, 'err'); }
-  if (data.audio_b64){
-    const a = document.createElement('audio');
-    a.controls = true;
-    a.src = 'data:audio/wav;base64,' + data.audio_b64;
-    bubble.appendChild(a);
-    a.play().catch(()=>{});
+function problemsCard(){
+  return `<div class="card"><h2>क्या दिक्कत है?</h2>
+    <div style="display:grid;gap:10px;margin-top:10px">${PROBLEMS.map(([l, t]) => say(l, t)).join("")}</div></div>`;
+}
+
+function gaugeCard(v){
+  const p = v.percent ?? 0, lvl = p < 25 ? "low" : (p < 50 ? "mid" : "");
+  const facts = v.cost ? `<div class="facts">
+      ${v.to80 ? `<div><small>80% तक</small><b>${esc(v.to80)}</b></div>` : ""}
+      <div><small>पूरा चार्ज</small><b>${v.full ? esc(v.full) : "भरी है"}</b></div>
+      <div><small>खर्चा</small><b>₹${esc(v.cost)}</b></div></div>` : "";
+  return `<div class="card">
+    <div class="battery" role="img" aria-label="बैटरी ${p} प्रतिशत"><div class="fill ${lvl}" style="width:${p}%"></div><span>${p}%</span></div>
+    <div class="km"><span class="big">≈${v.range_km}</span><span class="unit">किमी</span></div>
+    <div class="muted">${v.passengers ? `${v.passengers} सवारी के साथ ` : ""}और चलेगा</div>
+    ${facts}</div>`;
+}
+
+function tripCard(v){
+  const map = {yes:["g","आराम से पहुंच जाएंगे","v-yes"], borderline:["y","पहुंचेंगे, पर मार्जिन कम","v-borderline"],
+               no_charge_first:["r","पहले चार्ज कीजिए","v-no"], no_midway_charge:["r","बीच में चार्ज करना पड़ेगा","v-no"]};
+  const [light, text, cls] = map[v.verdict] || map.yes;
+  const route = v.origin && v.dest ? `<div class="route"><span>${esc(v.origin)}</span><i></i><span>${esc(v.dest)}</span></div>
+      <div class="muted">करीब ${v.km} किमी</div>` : `<h2>${v.km} किमी का सफ़र</h2>`;
+  const share = Math.min(100, v.range_share);
+  const barColor = v.verdict === "yes" ? "var(--plate)" : (v.verdict === "borderline" ? "var(--amber)" : "var(--warn)");
+  let todo = "";
+  if (v.target) todo += `<div class="todo">${icon("bolt")}<div><b>कम से कम ${v.target}% तक चार्ज करें</b><br>करीब ${esc(v.charge_time)}, ₹${esc(v.charge_cost)}</div></div>`;
+  if (v.station) todo += `<div class="todo">${icon("pin")}<div><b>${esc(v.station.area)}, ${esc(v.station.city)}</b><br>₹${v.station.price} यूनिट, ${esc(v.station.open)} <span class="tag t-demo">डेमो</span></div></div>`;
+  return `<div class="card">${route}
+    <div class="lights" role="img" aria-label="${esc(text)}"><b class="r ${light==="r"?"on":""}"></b><b class="y ${light==="y"?"on":""}"></b><b class="g ${light==="g"?"on":""}"></b></div>
+    <div class="verdict ${cls}">${text}</div>
+    <div class="meter"><span class="muted">चाहिए करीब ${v.need_km} किमी (थोड़ा ज़्यादा रखकर)</span>
+      <div class="track"><i style="width:100%;background:var(--muted)"></i></div>
+      <span class="muted">${v.percent}% पर रेंज करीब ${v.range_km} किमी</span>
+      <div class="track"><i style="width:${share}%;background:${barColor}"></i></div></div>
+    ${todo}</div>`;
+}
+
+function stationsCard(v){
+  const rows = v.items.map(s => `<div class="st ${s.cheapest ? "best" : ""}">
+      <div><div class="name">${esc(s.area)}</div><div class="muted">${esc(s.open)}, ${s.slots} स्लॉट</div>
+        <div>${s.cheapest ? '<span class="tag t-best">सबसे सस्ता</span>' : ""}${s.always_open ? '<span class="tag t-24">24 घंटे</span>' : ""}</div></div>
+      <div class="price"><b>₹${s.price}</b><span class="muted">यूनिट</span></div></div>`).join("");
+  return `<div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${esc(v.city)} के चार्जिंग पॉइंट</h2>
+    <span class="tag t-demo">डेमो डेटा</span></div>${rows}</div>`;
+}
+
+function savingsCard(v){
+  const bars = v.bars.map(b => `<div class="b ${b.mine ? "mine" : ""}"><span>${esc(b.label)}</span>
+      <div class="track"><i style="width:${b.share}%"></i></div><b>₹${esc(b.rs)}</b></div>`).join("");
+  return `<div class="card"><div class="muted">आज ${v.km} किमी चलाया, पेट्रोल ऑटो के मुकाबले बचे</div>
+    <div class="big" style="color:var(--plate)">₹${esc(v.saved)}</div>
+    <div class="bars">${bars}</div>
+    <div class="month"><div><div style="font-size:14px;opacity:.8">ऐसे ही चलाएं तो महीने में</div><b>≈ ₹${esc(v.monthly)}</b></div>${icon("rupee")}</div>
+    <p class="note" style="margin:8px 0 0">${esc(v.assumption)}</p></div>`;
+}
+
+function troubleCard(v){
+  const segs = Array.from({length: v.total}, (_, i) => `<i class="${i < v.step - 1 ? "done" : (i === v.step - 1 ? "now" : "")}"></i>`).join("");
+  return `<div class="card"><div class="row">${icon("wrench")}<h2 style="margin:0">${esc(v.title)}</h2></div>
+    <div class="steps" aria-label="उपाय ${v.step} में से ${v.total}">${segs}</div>
+    <div class="muted">उपाय ${v.step} / ${v.total}</div>
+    <p class="steptext">${esc(v.text)}</p>
+    <div class="grid2">${say("अगला उपाय", "अगला", "a-dark")}${say(icon("check") + "ठीक हो गया", "ठीक हो गया", "a-yes")}</div></div>`;
+}
+
+function confirmCard(v){
+  return `<div class="card" style="border:3px solid var(--signal);text-align:center">
+    <div class="muted">ठीक से सुना? पक्का कर लें</div>
+    <div class="big" style="font-size:96px">${v.percent}%</div>
+    <div class="grid2" style="margin-top:12px">${say(icon("check") + "हां", "हां", "a-yes")}${say(icon("x") + "नहीं", "नहीं", "a-no")}</div>
+    <p class="note" style="margin:10px 0 0">या बोलिए: “हां”, या “नहीं, सत्तर”</p></div>`;
+}
+
+function askCard(v){
+  const cols = v.slot === "city" ? "grid2" : "grid3";
+  const btns = v.choices.map(c => `<button class="choice" data-say="${esc(c.say)}">${esc(c.label)}</button>`).join("");
+  return `<div class="card"><h2>${esc(v.question)}</h2><p class="muted" style="margin:0 0 10px">बोलिए या चुनिए</p>
+    <div class="${cols}">${btns}</div></div>`;
+}
+
+function clarifyCard(v){
+  if (v.options.length === 1) return `<div class="card"><h2>क्या आप ${esc(v.options[0].label)} के बारे में पूछ रहे हैं?</h2>
+    <div class="grid2" style="margin-top:10px">${say(icon("check") + "हां", "हां", "a-yes")}${say("नहीं", "नहीं", "a-soft")}</div></div>`;
+  return `<div class="card"><h2>आप क्या पूछ रहे हैं?</h2>
+    <div style="display:grid;gap:10px;margin-top:10px">${v.options.map(o => say(esc(o.label), o.say, "a-soft")).join("")}</div></div>`;
+}
+
+function diagnosisCard(v){
+  const cls = v.tier === "battery_check" ? "v-no" : (v.tier === "check_basics" ? "v-borderline" : "v-yes");
+  return `<div class="card"><div class="muted">पहले ${v.before} किमी, अब ${v.after} किमी</div>
+    <div class="verdict ${cls}" style="font-size:44px">${v.drop}% कम</div>
+    ${v.offer ? `<p style="margin:10px 0">एक-एक करके उपाय बताऊं?</p>
+      <div class="grid2">${say(icon("check") + "हां, बताइए", "हां", "a-yes")}${say("नहीं", "नहीं", "a-soft")}</div>` : ""}</div>`;
+}
+
+const simpleCard = (title, body, extra = "") => `<div class="card"><h2>${title}</h2><p style="margin:0">${body}</p>${extra}</div>`;
+
+function render(view){
+  const v = view || {kind: "home"};
+  const html = {
+    home: homeCard, gauge: gaugeCard, trip: tripCard, stations: stationsCard, savings: savingsCard,
+    trouble: troubleCard, confirm: confirmCard, ask: askCard, clarify: clarifyCard, diagnosis: diagnosisCard,
+    problems: problemsCard,
+    fixed: () => simpleCard(`${icon("check")} बढ़िया, ठीक हो गया!`, "और कुछ पूछना हो तो बोलिए।"),
+    trouble_end: () => simpleCard("मैकेनिक को दिखाइए", "ये सब करके भी ठीक नहीं हुआ। चार्जर या बैटरी को खुद मत खोलिए।",
+      `<a class="action a-main" href="tel:" style="margin-top:12px;text-decoration:none">${icon("phone")}मैकेनिक को कॉल करें</a>`),
+    safety: homeCard,
+  }[v.kind] || homeCard;
+  $("stage").innerHTML = html(v);
+}
+
+function renderPlates(m){
+  const bits = [];
+  if (m && m.percent !== null && m.percent !== undefined) bits.push(`<button class="plate" data-local="askpercent" aria-label="बैटरी ${m.percent} प्रतिशत, बदलें">${icon("bat")}${m.percent}%</button>`);
+  if (m && m.city) bits.push(`<span class="plate">${icon("pin")}${esc(m.city)}</span>`);
+  if (m && m.passengers) bits.push(`<span class="plate">${icon("users")}${m.passengers} सवारी</span>`);
+  $("plates").hidden = !bits.length;
+  $("plates").innerHTML = bits.join("") + (bits.length ? '<span class="hint">याद है</span>' : "");
+}
+
+function showReply(data){
+  const out = [];
+  if (data.transcript && data.stt_seconds !== undefined) out.push(`<div class="heard">“${esc(data.transcript)}”</div>`);
+  out.push(`<div class="reply"><p>${esc(data.reply)}</p>
+    <button id="replayInline" aria-label="फिर से सुनें" ${data.audio_b64 ? "" : "disabled"}>${icon("speaker")}</button></div>`);
+  if (data.tts_error && !ttsWarned){ out.push(`<p class="note">आवाज़ नहीं बन पाई, जवाब पढ़ लीजिए।</p>`); ttsWarned = true; }
+  $("reply").innerHTML = `<div style="display:flex;flex-direction:column;gap:8px">${out.join("")}</div>`;
+  const r = $("replayInline"); if (r) r.onclick = playLast;
+}
+
+function addHistory(q, a){
+  const d = document.createElement("div");
+  d.innerHTML = `<div class="u">${esc(q)}</div><div>${esc(a)}</div>`;
+  $("hist").prepend(d);
+}
+
+function playLast(){ if (lastAudio){ lastAudio.currentTime = 0; lastAudio.play().catch(()=>{}); } }
+$("replay").onclick = playLast;
+
+function handle(data, asked){
+  if (data.error){
+    if (data.detail) console.warn(data.detail);
+    $("reply").innerHTML = `<div class="err">${esc(data.error)}</div>`;
+    return;
   }
-  say('फिर से पूछने के लिए बटन दबाइए।');
+  renderPlates(data.memory);
+  render(data.view);
+  showReply(data);
+  addHistory(data.transcript || asked, data.reply);
+  if (data.audio_b64){
+    lastAudio = new Audio("data:audio/wav;base64," + data.audio_b64);
+    $("replay").disabled = false;
+    lastAudio.play().catch(()=>{});
+  }
+  if (data.view && data.view.kind === "safety"){
+    $("alarm").hidden = false; $("alarmClose").focus();
+    if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 400]);
+  }
 }
 
-async function postJSON(url, body){
-  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-  return r.json();
+/* ---------- Talking to the server ---------- */
+function setBusy(on, label){
+  busy = on;
+  $("mic").classList.toggle("busy", on);
+  $("micText").textContent = on ? (label || "सोच रहा हूं") : "बोलिए";
 }
 
-async function sendText(text){
-  if (!text.trim()) return;
-  say('सोच रहा हूँ...');
-  try { showResult(await postJSON('/api/text', {text})); }
-  catch(e){ showResult({error:'सर्वर से जुड़ नहीं पाया: ' + e}); }
-}
-
-async function sendAudio(wavBlob){
-  say('सुन रहा हूँ...');
-  const fd = new FormData();
-  fd.append('audio', wavBlob, 'audio.wav');
-  const dl = document.createElement('a');
-  dl.href = URL.createObjectURL(wavBlob); dl.download = 'clip.wav';
-  dl.textContent = 'इस रिकॉर्डिंग को WAV में सेव करें';
-  dl.className = 'meta'; dl.style.cssText = 'align-self:flex-end;color:#16181b;text-decoration:underline';
-  chat.appendChild(dl);
+async function send(text){
+  if (!text || !text.trim() || busy) return;
+  setBusy(true);
   try {
-    const r = await fetch('/api/voice', {method:'POST', body:fd});
-    showResult(await r.json());
-  } catch(e){ showResult({error:'सर्वर से जुड़ नहीं पाया: ' + e}); }
+    const r = await fetch("/api/text", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({text, session_id: SESSION_ID})});
+    handle(await r.json(), text);
+  } catch(e){ handle({error: "इंटरनेट या सर्वर से नहीं जुड़ पाए।"}); }
+  finally { setBusy(false); }
 }
 
-// ---- Kisi bhi audio ko 16 kHz mono WAV banana ----
+async function sendAudio(wav){
+  setBusy(true, "सुन लिया");
+  const fd = new FormData(); fd.append("audio", wav, "audio.wav"); fd.append("session_id", SESSION_ID);
+  try {
+    const r = await fetch("/api/voice", {method: "POST", body: fd});
+    let data = await r.json();
+    if (data.error) data = {error: "आवाज़ समझ नहीं पाए। फिर से बोलिए, या नीचे लिखकर पूछिए।", detail: data.error};
+    handle(data, "(आवाज़)");
+  }
+  catch(e){ handle({error: "आवाज़ सर्वर तक नहीं पहुंची।"}); }
+  finally { setBusy(false); }
+}
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-say],[data-local]");
+  if (!b) return;
+  if (b.dataset.local === "problems") return render({kind: "problems"});
+  if (b.dataset.local === "askpercent") return render({kind: "ask", slot: "percent", question: "बैटरी कितने प्रतिशत चार्ज है?",
+    choices: [10,20,30,40,50,60,70,80,90,100].map(p => ({label: p + "%", say: p + " प्रतिशत"}))});
+  send(b.dataset.say);
+});
+
+$("kbd").onclick = () => {
+  const f = $("typed"); f.hidden = !f.hidden; $("kbd").setAttribute("aria-expanded", String(!f.hidden));
+  if (!f.hidden) $("typedInput").focus();
+};
+$("typed").onsubmit = (e) => { e.preventDefault(); const i = $("typedInput"); const t = i.value; i.value = ""; send(t); };
+$("reset").onclick = async () => {
+  try { await fetch("/api/reset", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({session_id: SESSION_ID})}); } catch(e) {}
+  SESSION_ID = newId(); lastAudio = null; $("replay").disabled = true;
+  $("reply").innerHTML = ""; $("hist").innerHTML = ""; renderPlates(null); render({kind: "home"});
+};
+$("alarmClose").onclick = () => { $("alarm").hidden = true; $("mic").focus(); };
+
+/* ---------- Recording: any audio -> 16 kHz mono WAV ---------- */
 async function toWav(arrayBuffer){
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const decoded = await ctx.decodeAudioData(arrayBuffer);
   const rate = 16000;
   const off = new OfflineAudioContext(1, Math.ceil(decoded.duration * rate), rate);
-  const src = off.createBufferSource();
-  src.buffer = decoded; src.connect(off.destination); src.start();
-  const rendered = await off.startRendering();
-  const pcm = rendered.getChannelData(0);
-  const buf = new ArrayBuffer(44 + pcm.length * 2);
-  const v = new DataView(buf);
+  const src = off.createBufferSource(); src.buffer = decoded; src.connect(off.destination); src.start();
+  const pcm = (await off.startRendering()).getChannelData(0);
+  const buf = new ArrayBuffer(44 + pcm.length * 2), v = new DataView(buf);
   const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
-  w(0,'RIFF'); v.setUint32(4, 36 + pcm.length*2, true); w(8,'WAVE'); w(12,'fmt ');
+  w(0,"RIFF"); v.setUint32(4, 36 + pcm.length*2, true); w(8,"WAVE"); w(12,"fmt ");
   v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
   v.setUint32(24,rate,true); v.setUint32(28,rate*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
-  w(36,'data'); v.setUint32(40, pcm.length*2, true);
-  for (let i = 0; i < pcm.length; i++){
-    const s = Math.max(-1, Math.min(1, pcm[i]));
-    v.setInt16(44 + i*2, s < 0 ? s*0x8000 : s*0x7FFF, true);
-  }
-  return new Blob([buf], {type:'audio/wav'});
+  w(36,"data"); v.setUint32(40, pcm.length*2, true);
+  for (let i = 0; i < pcm.length; i++){ const s = Math.max(-1, Math.min(1, pcm[i])); v.setInt16(44 + i*2, s < 0 ? s*0x8000 : s*0x7FFF, true); }
+  return new Blob([buf], {type: "audio/wav"});
 }
 
-micBtn.addEventListener('click', async () => {
-  if (recorder && recorder.state === 'recording'){ recorder.stop(); return; }
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({audio:true});
-  } catch(e){ say('माइक की अनुमति नहीं मिली। ब्राउज़र में माइक allow करिए।'); return; }
-  chunks = [];
-  recorder = new MediaRecorder(stream);
-  recorder.ondataavailable = e => chunks.push(e.data);
+let recorder = null, stream = null, chunks = [], raf = 0, tick = 0, audioCtx = null;
+const MAX_SECONDS = 15;
+
+function drawWave(analyser){
+  const c = $("wave"), g = c.getContext("2d"), data = new Uint8Array(analyser.frequencyBinCount);
+  const color = getComputedStyle(document.documentElement).getPropertyValue("--plate").trim() || "#1e7a4c";
+  const loop = () => {
+    analyser.getByteFrequencyData(data);
+    g.clearRect(0, 0, c.width, c.height);
+    const n = 28, bw = c.width / n;
+    for (let i = 0; i < n; i++){
+      const val = data[Math.floor(i * data.length / n / 2)] / 255;
+      const h = Math.max(12, val * c.height * .95);
+      g.fillStyle = color; g.beginPath();
+      g.roundRect ? g.roundRect(i * bw + bw * .25, (c.height - h) / 2, bw * .5, h, 8) : g.rect(i * bw + bw * .25, (c.height - h) / 2, bw * .5, h);
+      g.fill();
+    }
+    raf = requestAnimationFrame(loop);
+  };
+  loop();
+}
+
+async function startRec(){
+  if (busy) return;
+  try { stream = await navigator.mediaDevices.getUserMedia({audio: true}); }
+  catch(e){ handle({error: "माइक की इजाज़त नहीं मिली। ब्राउज़र सेटिंग में माइक चालू कीजिए।"}); return; }
+  chunks = []; recorder = new MediaRecorder(stream);
+  recorder.ondataavailable = (e) => chunks.push(e.data);
   recorder.onstop = async () => {
-    stream.getTracks().forEach(t => t.stop());
-    micBtn.classList.remove('rec'); micBtn.textContent = 'बोलिए';
-    say('प्रोसेस कर रहा हूँ...');
-    try {
-      const blob = new Blob(chunks, {type: recorder.mimeType});
-      sendAudio(await toWav(await blob.arrayBuffer()));
-    } catch(e){ showResult({error:'रिकॉर्डिंग को पढ़ नहीं पाया: ' + e}); }
+    cancelAnimationFrame(raf); clearInterval(tick); stream.getTracks().forEach(t => t.stop());
+    if (audioCtx) { audioCtx.close().catch(()=>{}); audioCtx = null; }
+    $("listen").hidden = true; $("mic").classList.remove("rec"); $("mic").focus();
+    try { sendAudio(await toWav(await new Blob(chunks, {type: recorder.mimeType}).arrayBuffer())); }
+    catch(e){ handle({error: "रिकॉर्डिंग पढ़ी नहीं जा सकी।"}); }
   };
   recorder.start();
-  micBtn.classList.add('rec'); micBtn.textContent = 'रोकिए';
-  say('सुन रहा हूँ... बोलकर फिर से बटन दबाइए।');
+  $("mic").classList.add("rec"); $("listen").hidden = false; $("stop").focus();
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const an = audioCtx.createAnalyser(); an.fftSize = 256;
+    audioCtx.createMediaStreamSource(stream).connect(an); drawWave(an);
+  } catch(e) {}
+  let secs = 0; $("timer").textContent = "0 सेकंड";
+  tick = setInterval(() => { secs++; $("timer").textContent = secs + " सेकंड";
+    if (secs >= MAX_SECONDS && recorder.state === "recording") recorder.stop(); }, 1000);
+}
+const stopRec = () => { if (recorder && recorder.state === "recording") recorder.stop(); };
+$("mic").onclick = () => (recorder && recorder.state === "recording") ? stopRec() : startRec();
+$("stop").onclick = stopRec;
+
+$("file").addEventListener("change", async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  try { sendAudio(await toWav(await f.arrayBuffer())); } catch(err){ handle({error: "ये फ़ाइल नहीं खुली।"}); }
+  e.target.value = "";
 });
 
-document.getElementById('chips').addEventListener('click', e => {
-  const q = e.target.dataset.q; if (q) sendText(q);
-});
-document.getElementById('send').addEventListener('click', () => {
-  const el = document.getElementById('typed'); const t = el.value; el.value = ''; sendText(t);
-});
-document.getElementById('typed').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('send').click(); });
-document.getElementById('file').addEventListener('change', async e => {
-  const f = e.target.files[0]; if (!f) return;
-  say('फ़ाइल पढ़ रहा हूँ...');
-  try { sendAudio(await toWav(await f.arrayBuffer())); }
-  catch(err){ showResult({error:'फ़ाइल नहीं खुली: ' + err}); }
-  e.target.value = '';
-});
+render({kind: "home"});
 </script>
 </body>
 </html>

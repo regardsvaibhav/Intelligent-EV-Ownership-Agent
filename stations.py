@@ -45,3 +45,44 @@ CITY_HINDI = {
     "bharatpur": "भरतपुर",
     "indore": "इंदौर",
 }
+
+# ---------------- Trip feasibility ke liye DEMO routes ----------------
+# Doori lagbhag (approximate) road km hai, sirf demo ke liye. Asli trip se pehle map par check karein.
+DEMO_ROUTES = {
+    ("jaipur", "chomu"): 33,
+    ("bhopal", "sehore"): 38,
+    ("udaipur", "nathdwara"): 48,
+    ("bharatpur", "deeg"): 35,
+    ("indore", "dewas"): 38,
+    ("indore", "mhow"): 23,
+}
+
+# Shehar + aas-paas ke kasbe, Roman aur Devanagari dono
+PLACE_WORDS = dict(CITY_WORDS)
+PLACE_WORDS.update({
+    "chomu": ["chomu", "चौमूं", "चौमू"],
+    "sehore": ["sehore", "सीहोर"],
+    "nathdwara": ["nathdwara", "नाथद्वारा"],
+    "deeg": ["deeg", "डीग"],
+    "dewas": ["dewas", "देवास"],
+    "mhow": ["mhow", "महू"],
+})
+
+PLACE_HINDI = dict(CITY_HINDI)
+PLACE_HINDI.update({
+    "chomu": "चौमूं",
+    "sehore": "सीहोर",
+    "nathdwara": "नाथद्वारा",
+    "deeg": "डीग",
+    "dewas": "देवास",
+    "mhow": "महू",
+})
+
+# Bolne ke liye area ke Hindi naam (replies Devanagari mein rehte hain). Demo data.
+AREA_HINDI = {
+    "Station Road": "स्टेशन रोड", "Bus Stand": "बस स्टैंड", "Sabzi Mandi": "सब्ज़ी मंडी",
+    "Railway Station": "रेलवे स्टेशन", "New Market": "न्यू मार्केट", "ISBT": "आईएसबीटी",
+    "Surajpole": "सूरजपोल", "Chetak Circle": "चेतक सर्कल", "Roadways Bus Stand": "रोडवेज़ बस स्टैंड",
+    "Mathura Gate": "मथुरा गेट", "Ganga Mandir Road": "गंगा मंदिर रोड",
+    "Rajwada": "राजवाड़ा", "Sarafa": "सराफा", "Sarwate": "सरवटे",
+}

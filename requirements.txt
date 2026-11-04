@@ -1,5 +1,6 @@
-flask
-requests
-python-dotenv
-numpy
-gunicorn
+flask>=3.0
+requests>=2.31
+python-dotenv>=1.0
+numpy>=1.26          # noise_test.py audio mixing / 8 kHz simulation
+gunicorn>=21.2
+rapidfuzz>=3.0       # fuzzy keyword matching for STT spelling errors (agent still runs without it)

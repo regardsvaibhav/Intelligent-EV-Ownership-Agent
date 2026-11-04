@@ -10,6 +10,7 @@ import io
 import wave
 import base64
 import time
+import struct
 import requests
 from dotenv import load_dotenv
 
@@ -30,11 +31,15 @@ class GnaniError(Exception):
     pass
 
 
+# .env.example / purane README ke placeholder: inhe asli key mat samjho
+_PLACEHOLDER_KEYS = {"PASTE_YOUR_API_KEY_HERE", "replace_with_your_gnani_api_key"}
+
+
 def _api_key():
     key = os.getenv("GNANI_API_KEY", "").strip()
-    if not key or key == "PASTE_YOUR_API_KEY_HERE":
+    if not key or key in _PLACEHOLDER_KEYS:
         raise GnaniError(
-            "API key nahi mili. .env file kholo aur PASTE_YOUR_API_KEY_HERE ki jagah apni Gnani API key daalo."
+            "API key nahi mili. .env file kholo aur GNANI_API_KEY mein apni asli Gnani API key daalo."
         )
     return key
 
@@ -65,7 +70,7 @@ def transcribe(wav_bytes, filename="audio.wav"):
     """Prisma: WAV audio bytes -> text."""
     key = _api_key()
     try:
-        resp = requests.post(
+        resp = _post_with_retry(
             STT_URL,
             headers={"X-API-Key-ID": key},
             files={"audio_file": (filename, wav_bytes, "audio/wav")},
@@ -91,8 +96,6 @@ def _pcm_to_wav(pcm_bytes, sample_rate):
         w.setframerate(sample_rate)
         w.writeframes(pcm_bytes)
     return buf.getvalue()
-
-import struct
 
 def _normalize_wav(audio):
     """Timbre sends a WAV with a placeholder length. Rebuild it with the real one."""
@@ -120,7 +123,10 @@ def _extract_audio(resp):
     """Timbre ke jawab se audio bytes nikalta hai (seedha audio ya JSON mein base64)."""
     ctype = resp.headers.get("Content-Type", "")
     if "json" in ctype:
-        data = resp.json()
+        try:
+            data = resp.json()
+        except ValueError:
+            raise GnaniError(f"Timbre ka jawab JSON nahi hai: {resp.text[:300]}")
         b64 = None
         if isinstance(data, dict):
             for k in ("audio", "audio_content", "audio_base64", "data"):
@@ -132,22 +138,29 @@ def _extract_audio(resp):
         return base64.b64decode(b64)
     return resp.content
 
-    import time
 
 RETRY_STATUS = {429, 502, 503, 504}
 
+
 def _post_with_retry(*args, retries=3, **kwargs):
+    """
+    requests.post, lekin 429/502/503/504 ya connection toot-ne par 3 baar tak koshish.
+    Timeout par dobara nahi bhejte: driver pehle hi TIMEOUT_SEC intezaar kar chuka hai.
+    """
     last = None
     for i in range(retries):
         try:
             resp = requests.post(*args, **kwargs)
-        except requests.RequestException as e:
+        except requests.Timeout:
+            raise
+        except requests.ConnectionError as e:
             last = e
         else:
             if resp.status_code not in RETRY_STATUS:
                 return resp
             last = resp
-        time.sleep(1.5 * (i + 1))
+        if i < retries - 1:
+            time.sleep(1.5 * (i + 1))
     if isinstance(last, requests.Response):
         return last
     raise last
@@ -171,7 +184,7 @@ def synthesize(text):
         },
     }
     try:
-        resp = requests.post(TTS_URL, headers=headers, json=body, timeout=TIMEOUT_SEC)
+        resp = _post_with_retry(TTS_URL, headers=headers, json=body, timeout=TIMEOUT_SEC)
     except requests.RequestException as e:
         raise GnaniError(f"Timbre se connect nahi ho paya: {e}")
     if resp.status_code != 200:

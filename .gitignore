@@ -22,6 +22,10 @@ ENV/
 # Generated audio and noise-test results
 testset/
 noise_results.csv
+results.csv
+results_rescored.csv
+noisy_clips/
+test_clips/
 *.wav
 *.mp3
 *.m4a
@@ -44,3 +48,5 @@ Desktop.ini
 
 smoke_test.py
 smoke_tts.wav
+# Per-turn agent logs
+logs/
