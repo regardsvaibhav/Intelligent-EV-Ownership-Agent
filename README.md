@@ -1,211 +1,430 @@
-# Intelligent EV Ownership Agent — Hindi voice assistant for e-rickshaw drivers
+# ⚡ Intelligent EV Ownership Agent
+### A Hindi Voice-First AI Assistant for India's E-Rickshaw Drivers
 
-A voice-first assistant that answers the everyday questions of an Indian e-rickshaw driver in Hindi/Hinglish:
-how far the battery will go, how long and how much a charge costs, whether a trip is possible, where to charge,
-how much was saved versus petrol/CNG, and step-by-step help when charging goes wrong. Replies are short spoken
-Hindi sentences.
+<p align="center">
+  <strong>Making EV ownership assistance accessible through conversational Hindi and voice AI.</strong>
+</p>
 
-Built for Gnani AI's *Great Indian AI Internship Challenge*.
+<p align="center">
+  <a href="https://intelligent-ev-ownership-agent.onrender.com/"><strong>🚀 Live Demo</strong></a>
+  &nbsp; • &nbsp;
+  <a href="https://github.com/regardsvaibhav/Intelligent-EV-Ownership-Agent"><strong>💻 GitHub Repository</strong></a>
+</p>
 
-## What it is (and is not)
+<p align="center">
+  Built for the <strong>Great Indian AI Internship Challenge by Gnani AI</strong>
+</p>
 
-This is a **stateful, tool-using voice dialog agent with rule-based NLU**:
+---
 
-- Speech is handled by Gnani: **Prisma** for speech-to-text and **Timbre** for text-to-speech.
-- Understanding is **rule-based**: text normalization, a complete Hindi number parser, slot extraction, and
-  weighted keyword/phrase scoring with fuzzy matching (rapidfuzz) for STT spelling errors.
-- A dialog manager keeps per-conversation state, asks for missing information, resumes the original question,
-  handles follow-ups and corrections, and reads back uncertain numbers.
-- Answers come from small deterministic "tools" (calculators and lookups).
+## 🚀 Overview
 
-The rules handle every turn they understand. Only when they understand nothing, an **optional LLM fallback**
-(a free LLM API, Google Gemini by default, see below) is asked; without an `LLM_API_KEY` the agent is fully rule-based. All numbers come from simple, documented models with
-assumed vehicle constants, and all station and route data is **synthetic demo data**.
+Owning and operating an electric rickshaw comes with everyday questions:
 
-## Architecture
+- How far can I travel with my current battery charge?
+- How long will charging take, and how much will it cost?
+- Can I complete a particular journey with the remaining battery?
+- Where can I find a charging point?
+- How much am I saving compared to petrol or CNG?
+- What should I do if my charger stops working?
+
+**Intelligent EV Ownership Agent** is a voice-first conversational assistant designed to answer these questions in Hindi and Hinglish.
+
+Drivers can simply speak naturally instead of navigating complicated interfaces or typing technical queries. The agent understands their questions, remembers relevant conversation context, asks follow-up questions when necessary, and provides short, actionable spoken responses.
+
+The application combines Gnani AI's speech technologies with a custom conversational agent, deterministic calculation tools, and an interface designed for practical mobile use.
+
+## 🎯 Key Features
+
+| Feature | What it does |
+|---|---|
+| 🔋 Battery Range Estimation | Estimates remaining driving range using battery charge and vehicle assumptions. |
+| ⚡ Charging Calculator | Calculates approximate charging time and electricity cost. |
+| 🛺 Trip Feasibility | Evaluates whether a journey is possible with the available battery charge. |
+| 📍 Charging Point Discovery | Provides demo charging-point information, including approximate distances and costs. |
+| 💰 Savings Calculator | Compares electricity expenditure against petrol and CNG alternatives. |
+| 🔧 Troubleshooting Assistant | Guides drivers through charging-related problems one step at a time. |
+| 🛡️ Safety Detection | Prioritises safety responses for situations involving smoke, sparks or electric shocks. |
+| 🗣️ Hindi Voice Interaction | Supports Hindi and Hinglish speech input and spoken responses. |
+| 🧠 Conversational Memory | Retains relevant information across turns and handles corrections and follow-up questions. |
+
+## 💬 What Can You Ask?
+
+The assistant supports practical, everyday conversations rather than requiring rigid commands.
+
+| Driver's query | Agent's response |
+|---|---|
+| "60% चार्ज है, कितना चलेगा?" | Estimated remaining range. |
+| "चार्ज होने में कितना टाइम लगेगा?" | Approximate charging duration and cost. |
+| "भोपाल से सीहोर जाना है, 30% है, पहुंच जाऊंगा?" | Trip feasibility and charging recommendation. |
+| "आज 80 km चलाया, कितना बचा?" | Estimated savings against petrol and CNG. |
+| "पहले 90 चलती थी, अब 60" | Range degradation estimation and advice. |
+| "चार्जर डिटेक्ट नहीं कर रहा" | Step-by-step troubleshooting. |
+| "चार्जर से धुआं आ रहा है" | Immediate safety-prioritised response. |
+| "जयपुर में चार्जिंग पॉइंट बताओ" | Available demo charging-point information. |
+
+**Context-aware conversations:**
+
+The agent can also handle incomplete queries and follow-ups.
+
+For example:
+
+1. Driver: "कितना चलेगा?"
+2. Agent: Asks for the current battery percentage.
+3. Driver: "साठ।"
+4. Agent: Confirms an uncertain number when necessary.
+5. Driver: "हां।"
+6. Agent: Calculates the estimated driving range.
+
+It also understands corrections such as "नहीं, सत्तर" and follow-ups such as "और खर्चा?"
+
+## 🖥️ Application Preview
+
+The interface is designed around the practical constraints of an e-rickshaw driver: a mobile-first layout, large touch targets, minimal interaction and readable information.
+
+| | | |
+|:---:|:---:|:---:|
+| **Home Screen** | **Voice Listening** | **Battery Range** |
+| ![Home](docs/screens/01-home.png) | ![Listening](docs/screens/02-listening.png) | ![Range](docs/screens/04-battery-range-cost.png) |
+| **Trip Assessment** | **Charging Points** | **Savings** |
+| ![Trip](docs/screens/07-trip-ok.png) | ![Stations](docs/screens/08-charging-points.png) | ![Savings](docs/screens/09-savings.png) |
+| **Troubleshooting** | **Safety Alert** | **Sunlight Mode** |
+| ![Troubleshooting](docs/screens/10-troubleshoot-step.png) | ![Safety](docs/screens/11-safety-alert.png) | ![Sun Mode](docs/screens/12-sun-mode.png) |
+
+*Screenshots show the application's interface. For these screenshots, voice output was replaced with silence because no Gnani API key was used.*
+
+## 🏗️ System Architecture
+
+The application follows a modular architecture combining speech processing, rule-based natural language understanding, conversational state management and deterministic tools.
 
 ```mermaid
-flowchart LR
-    A[Driver speaks] --> B[Browser mic<br/>16 kHz WAV]
-    B --> C[Gnani Prisma<br/>STT, hi-IN]
-    C --> D[normalize]
-    D --> E{safety check}
-    E -- smoke / spark / shock --> R
-    E --> F[slot extraction<br/>percent, km, city, passengers]
-    F --> G[intent scoring<br/>weights + fuzzy + margin]
-    G --> H[dialog manager<br/>pending slots, confirm, follow-ups]
-    H --> I[tool run<br/>range, charge, trip, stations, savings, troubleshoot]
-    I --> R[short Hindi reply]
-    R --> S[Gnani Timbre<br/>TTS]
-    S --> T[Driver hears answer]
+flowchart TD
+    A["Driver speaks in Hindi / Hinglish"]
+    B["Browser Microphone<br/>16 kHz WAV"]
+    C["Gnani Prisma<br/>Speech-to-Text"]
+    D["Text Normalization<br/>Hindi Number Parsing"]
+    E["Safety Detection"]
+    F["Slot Extraction<br/>Battery %, Distance, City"]
+    G["Intent Classification<br/>Weighted Matching + Fuzzy Matching"]
+    H["Conversational Dialog Manager"]
+    I["Deterministic EV Tools"]
+    J["Short Hindi Response"]
+    K["Gnani Timbre<br/>Text-to-Speech"]
+    L["Driver hears response"]
+
+    A --> B --> C --> D --> E
+    E --> F --> G --> H --> I --> J --> K --> L
 ```
 
-| Stage | Where | Notes |
-|---|---|---|
-| Speech to text | `gnani.py` → Prisma (`STT_URL`, `language_code=hi-IN`) | Called from `app.py` `/api/voice` |
-| Normalization, numbers, slots | `nlu.py` | Token-based matching, Devanagari + romanized |
-| Safety, scoring, dialog manager, logging | `agent.py` | `step(session, text)` is the entry point |
-| Tools (calculators, lookups) | `tools.py` | Pure functions, unit-tested |
-| Vehicle and NLU constants | `config.py` | Every value is labelled as an assumption |
-| Demo data | `stations.py` | Synthetic stations and approximate route distances |
-| Text to speech | `gnani.py` → Timbre (`TTS_MODEL`, `TTS_VOICE` as set in `gnani.py`) | Reply text is spoken back |
-| Screen cards | `ui_view.py` | Turns each answer into card data (same rounding as the spoken reply) |
-| LLM fallback (optional) | `llm_fallback.py` → Gemini (free tier) or any OpenAI-compatible API | Only on turns the rules cannot understand |
-| Web server | `app.py` (Flask) | One `Session` per browser tab, in memory; returns reply, audio, `view` and `memory` |
-| Driver web app | `templates/index.html` | Single page, no framework; see "The driver screen" below |
+### Core Processing Pipeline
 
-## Features
+**1. Speech Recognition — Gnani Prisma**
 
-| Driver says | Agent does |
+Converts the driver's spoken Hindi input into text using Gnani AI's speech-to-text service, configured for `hi-IN`.
+
+**2. Natural Language Understanding**
+
+A custom rule-based NLU pipeline performs:
+
+- Hindi and Hinglish text normalization.
+- Devanagari and romanized Hindi number parsing (0–100).
+- Slot extraction for battery percentage, distance, city and passenger count.
+- Weighted keyword and phrase matching.
+- Fuzzy matching using RapidFuzz to handle common speech-to-text spelling errors.
+
+**3. Conversational Dialog Management**
+
+The agent maintains per-session conversation state and supports:
+
+- Missing-information detection.
+- Follow-up questions.
+- Number confirmation.
+- User corrections.
+- Resuming previously incomplete queries.
+- Safety-prioritised responses.
+
+**4. Deterministic EV Tools**
+
+The agent invokes specialised calculation and lookup functions for range estimation, charging, trip feasibility, savings and troubleshooting.
+
+**5. Voice Generation — Gnani Timbre**
+
+Converts the generated Hindi response into speech, completing the voice interaction loop.
+
+## 🧠 Engineering Approach: Rule-Based Agent + Optional LLM
+
+An important design decision was to avoid making the entire application dependent on an LLM.
+
+The primary conversational system uses deterministic NLU, a dialog manager and specialised tools. This allows calculations to remain predictable and transparent.
+
+An optional LLM fallback is available for queries that the rule-based system cannot understand.
+
+### How the fallback works
+
+When the rules cannot identify an intent:
+
+1. The optional LLM classifies the query and extracts relevant information.
+2. If it identifies a supported intent, the request is passed to the existing agent tools.
+3. If it identifies a general EV question, it can generate a short Hindi response.
+4. Unsupported queries, invalid responses and timeouts fall back to the normal clarification response.
+
+**An important distinction:** The LLM does not calculate battery range, charging costs or trip feasibility. These numerical outputs continue to come from the deterministic tools.
+
+The default fallback provider is Google Gemini through an OpenAI-compatible API interface. It can also be configured with compatible providers such as Groq or OpenRouter.
+
+The LLM fallback is optional; the core agent works without an LLM API key.
+
+## 🛠️ Technology Stack
+
+| Component | Technology |
 |---|---|
-| "60% चार्ज है, कितना चलेगा और कितना खर्चा?" | Range plus charge time and cost in one answer |
-| "कितना चलेगा?" → "साठ" → "हां" | Asks for the missing %, reads back the uncertain number, then answers |
-| "और खर्चा?" / "और अगर 40% हो?" / "नहीं, सत्तर" | Follow-ups and corrections reuse the conversation state |
-| "भोपाल से सीहोर जाना है, 30% है, पहुंच जाऊंगा?" | Trip check: yes / borderline / no, with a charge-before-leaving target and a demo charging point |
-| "आज 80 km चलाया, कितना बचा?" | Electricity cost vs petrol and CNG autos, plus a monthly estimate |
-| "पहले 90 चलती थी, अब 60" | Range-drop percentage with tiered advice, then an offer of step-by-step help |
-| "चार्जर डिटेक्ट नहीं कर रहा" | One troubleshooting step at a time; "अगला" / "ठीक हो गया"; escalates to a mechanic at the end |
-| "चार्जर से धुआं आ रहा है" | Safety reply first, overriding any open question |
-| "जयपुर में चार्जिंग पॉइंट" | Number of demo points, the cheapest one, and the 24-hour one |
-| Unclear input | Targeted question naming the top two guesses, and a simpler prompt after two failures |
+| Speech-to-Text | Gnani AI Prisma |
+| Text-to-Speech | Gnani AI Timbre |
+| Backend | Python, Flask |
+| Natural Language Understanding | Custom rule-based NLU |
+| Fuzzy Matching | RapidFuzz |
+| Optional LLM | Google Gemini / OpenAI-compatible APIs |
+| Frontend | HTML, CSS, JavaScript |
+| Audio Processing | WAV, 16 kHz |
+| Testing | Pytest |
+| Deployment | Gunicorn, Render |
 
-## LLM fallback (optional)
+## 📁 Project Structure
 
-When the rules find no intent at all, `app.py` asks an LLM (`llm_fallback.py`, registered through
-`agent.register_fallback_classifier`). It uses any OpenAI-compatible chat API over plain `requests`; the default is
-Google Gemini's free tier. One call, JSON output, then one of:
+```text
+Intelligent-EV-Ownership-Agent/
+│
+├── agent.py              # Agent orchestration and dialog management
+├── nlu.py                # Hindi number parsing and intent recognition
+├── tools.py              # EV calculations and troubleshooting tools
+├── config.py             # Vehicle assumptions and NLU configuration
+├── stations.py           # Demo charging stations and routes
+├── gnani.py              # Gnani Prisma and Timbre integrations
+├── llm_fallback.py       # Optional LLM fallback
+├── app.py                # Flask application and API endpoints
+├── ui_view.py            # Response-to-UI card generation
+│
+├── templates/
+│   └── index.html        # Driver-facing web interface
+│
+├── docs/
+│   ├── screens/          # Application screenshots
+│   └── EV-Agent-Driver-App.pptx
+│
+├── tests/                # Automated test suite
+│
+├── eval_set.py           # Labelled evaluation utterances
+├── eval_intents.py       # Intent recognition evaluation
+├── noise_test.py         # Speech recognition robustness tests
+│
+├── requirements.txt
+├── requirements-dev.txt
+├── .env.example
+└── README.md
+```
 
-1. **A known intent** (range, trip, stations, troubleshooting, ...) plus any %, km or city it heard. The agent's
-   normal tools answer, so every number the driver hears still comes from `tools.py`, never from the LLM.
-2. **`general_ev`**: another EV-ownership question (rain, battery care, servicing). The LLM writes at most two short
-   spoken Hindi sentences, told not to state numbers, prices or brands and to send risky problems to a mechanic.
-   Logged as intent `llm_answer`.
-3. **`other`**, an error, a timeout (8 s) or invalid JSON: the normal "समझ नहीं पाया" reply.
+## ⚙️ Getting Started
 
-Safety words are still checked by the rules first, before any LLM call.
+### Prerequisites
 
-Setup: get a free key at [Google AI Studio](https://aistudio.google.com/apikey) and set `LLM_API_KEY` (locally in
-`.env`, on Render in the Environment tab). Optional: `LLM_MODEL` (default `gemini-3.8-flash`; check which models
-your free quota covers in AI Studio), `LLM_TIMEOUT_SEC`, `LLM_FALLBACK=0` to switch it off. For Groq or OpenRouter set
-`LLM_BASE_URL` (e.g. `https://api.groq.com/openai/v1`) and `LLM_MODEL`. Free tiers have rate limits and may use
-prompts to improve their models, so don't send personal data. Tests use a fake API and never call it.
+- Python 3.10+
+- Gnani AI API credentials for voice interaction.
+- Optional: Google Gemini or another compatible API key for LLM fallback.
 
-## The driver screen
+### 1. Clone the repository
 
-<table>
-<tr><td align="center"><img src="docs/screens/01-home.png" width="200" alt="Start screen"><br><sub>Start screen</sub></td><td align="center"><img src="docs/screens/02-listening.png" width="200" alt="Listening"><br><sub>Listening</sub></td><td align="center"><img src="docs/screens/04-battery-range-cost.png" width="200" alt="Range, time, cost"><br><sub>Range, time, cost</sub></td><td align="center"><img src="docs/screens/05-confirm-number.png" width="200" alt="Confirm a number"><br><sub>Confirm a number</sub></td></tr>
-<tr><td align="center"><img src="docs/screens/06-trip-charge-first.png" width="200" alt="Trip: charge first"><br><sub>Trip: charge first</sub></td><td align="center"><img src="docs/screens/07-trip-ok.png" width="200" alt="Trip: OK"><br><sub>Trip: OK</sub></td><td align="center"><img src="docs/screens/08-charging-points.png" width="200" alt="Charging points"><br><sub>Charging points</sub></td><td align="center"><img src="docs/screens/09-savings.png" width="200" alt="Savings"><br><sub>Savings</sub></td></tr>
-<tr><td align="center"><img src="docs/screens/03-tap-to-answer.png" width="200" alt="Tap to answer"><br><sub>Tap to answer</sub></td><td align="center"><img src="docs/screens/10-troubleshoot-step.png" width="200" alt="Step-by-step fix"><br><sub>Step-by-step fix</sub></td><td align="center"><img src="docs/screens/11-safety-alert.png" width="200" alt="Safety alert"><br><sub>Safety alert</sub></td><td align="center"><img src="docs/screens/12-sun-mode.png" width="200" alt="Sun mode"><br><sub>Sun mode</sub></td></tr>
-</table>
+```bash
+git clone https://github.com/regardsvaibhav/Intelligent-EV-Ownership-Agent.git
 
-Screenshots of the running app (`templates/index.html` against the real agent). For the screenshots only, the
-Gnani voice was replaced with silence because no API key was used. A short deck built from these screens is in
-[`docs/EV-Agent-Driver-App.pptx`](docs/EV-Agent-Driver-App.pptx).
+cd Intelligent-EV-Ownership-Agent
+```
 
-The page is built for a driver on a cheap Android phone, in sunlight, with one hand free:
+### 2. Create a virtual environment
 
-- One big green mic button at the bottom; a sound-wave sheet while it listens (auto-stops after 15 s).
-- Every answer is a card, not just text: battery gauge with km, a traffic light for "will I reach?",
-  station cards with the cheapest highlighted, a savings card, and one-step-at-a-time troubleshooting.
-- When the agent needs a number or city, the card shows big tap buttons (10%…100%, 10…100 km, city names),
-  so the driver can tap instead of speaking in a noisy street.
-- Uncertain numbers are confirmed with large हां / नहीं buttons.
-- What the agent remembers (charge %, city, passengers) is shown as green EV-number-plate chips; tapping the
-  battery plate changes the %.
-- Safety answers take over the full screen in red, vibrate the phone, and offer a call button.
-- धूप (sun) mode switches to black and yellow for direct sunlight; every reply has a replay button.
-- Works down to 320 px wide, keyboard focus is visible, and reduced-motion settings are respected.
-- No map is shown: there is no GPS or real map data, and a fake map would mislead a driver.
-
-## Setup
+**Windows:**
 
 ```bash
 python -m venv venv
-source venv/bin/activate            # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env                # put your Gnani API key in .env
+venv\Scripts\activate
 ```
 
-## Run
+**Linux / macOS:**
 
 ```bash
-python agent.py                     # text-only demo of the agent, no API key needed
-python app.py                       # web app at http://localhost:5000
-gunicorn -w 1 --threads 4 app:app   # deployment; ONE worker so conversation state stays in one process
+python -m venv venv
+source venv/bin/activate
 ```
 
-For a public URL, the server has basic cost/abuse limits (set in `.env`): `MAX_UPLOAD_MB` (default 5),
-`RATE_LIMIT_PER_MIN` per IP (default 30, `0` turns it off) and `MAX_SESSIONS` kept in memory (default 2000).
-Behind a reverse proxy every request can share one IP; add Werkzeug's `ProxyFix` before relying on the rate limit.
+### 3. Install dependencies
 
-Every turn is logged as one JSON line in `logs/turns.jsonl` (intent, score, slots, reply). Digit runs of 7+ digits
-are masked before logging. Set `EV_AGENT_LOG_PATH=` (empty) to turn logging off.
+```bash
+pip install -r requirements.txt
+```
 
-## Tests and evaluation
+For development and testing:
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q                           # 181 tests: numbers, slots, intents, dialogs, safety, tools, screen cards, server limits
-python eval_intents.py              # intent accuracy on clean + simulated-STT-error text -> eval_results.md
-python noise_test.py                # real audio through Prisma: clean / traffic noise / 8 kHz phone line
-python noise_test.py --rescore      # re-score saved transcripts with the current agent (no API key needed)
 ```
 
-### Intent accuracy (from `eval_results.md`)
+### 4. Configure environment variables
 
-50 labelled synthetic utterances, 11 intents. Noisy rows corrupt each utterance 10 times with a documented
-character/word-level STT-error simulator (drops, swaps, duplicates, script swaps, dropped words, merged words).
+Create your local environment file:
 
-| condition | utterances | accuracy |
-|---|---|---|
-| clean | 50 | 100.0% |
-| simulated STT errors, p=0.1 per word | 500 | 95.0% |
-| simulated STT errors, p=0.2 per word | 500 | 90.4% |
-| simulated STT errors, p=0.3 per word | 500 | 83.2% |
-
-How to read these numbers:
-- The eval set was written by the same author as the rules, before they were implemented. The first clean run
-  scored 96%; two keyword gaps it exposed were then fixed. Safety matching was changed after the first noisy run.
-  So these are optimistic estimates, not field results.
-- The simulator is not a model of Prisma's real errors. Real-audio results come from `noise_test.py`, which needs
-  your own synthetic or self-recorded clips and a Gnani key.
-- Weakest under noise: `trouble_not_detecting` (68% at p=0.2) and `safety` (80% at p=0.2). Both depend on short
-  phrases that break when a word is dropped.
-
-## Limitations
-
-- **Demo data.** Charging stations and prices in `stations.py` are invented. Route distances are approximate.
-- **Assumed vehicle constants.** Battery size, range, charger power, the 80% charging taper, load derating and fuel
-  prices in `config.py` are assumptions, not measurements. Set them for your vehicle.
-- **Simple models.** Range is linear in charge %, load derating is linear per passenger, and charging is a two-stage
-  approximation. Terrain, temperature and battery chemistry are not modelled.
-- **Rule-based NLU.** Phrasing outside the keyword lists is not understood. The agent asks a clarifying question
-  instead of guessing, but coverage is limited to the domains above.
-- **Similar-sounding numbers.** If STT turns "साठ" (60) into "सात" (7) and the driver also said "प्रतिशत", the
-  agent treats 7% as certain and answers for 7%. Read-back only happens for numbers without a unit or cue.
-- **In-memory sessions.** Conversation state lives in the Flask process and is lost on restart.
-- **LLM answers are not verified.** `general_ev` replies come from the LLM and are not checked against a
-  knowledge base. The intent eval above measures the rules only, with the LLM fallback off.
-
-## Project layout
-
-```
-agent.py          Session, safety check, intent scoring, dialog manager, logging, step()/respond()
-nlu.py            normalize(), Hindi numbers 0-100, slot extraction, token/fuzzy matching
-tools.py          range, charging time/cost, trip, stations, savings, range-drop diagnosis, troubleshooting text
-config.py         VehicleConfig (all assumptions) and NLU thresholds
-stations.py       synthetic stations, demo routes, place names
-llm_fallback.py   optional free-LLM (Gemini) fallback for turns the rules cannot understand
-app.py            Flask server: /api/voice, /api/text, /api/reset
-gnani.py          Gnani Prisma (STT) and Timbre (TTS) HTTP calls
-noise_test.py     audio robustness test through Prisma (noise + 8 kHz phone line)
-eval_intents.py   text-level intent evaluation with an STT-error simulator
-eval_set.py       labelled evaluation utterances
-tests/            pytest suite
-templates/        single-page driver web app
-ui_view.py        card data for the web app
-docs/             screenshots of the app and a short deck
+```bash
+cp .env.example .env
 ```
 
-All recordings, phone numbers and test utterances used with this project must be synthetic, as the contest
-rules require.
+Add your Gnani AI credentials and configure the relevant speech-to-text settings as documented in `.env.example`.
+
+For the optional LLM fallback, configure:
+
+```env
+LLM_API_KEY=your_api_key
+```
+
+Additional optional settings:
+
+```env
+LLM_MODEL=gemini-3.8-flash
+LLM_TIMEOUT_SEC=8
+LLM_FALLBACK=1
+```
+
+Set `LLM_FALLBACK=0` to disable the LLM fallback entirely.
+
+**Never commit your `.env` file or API credentials to GitHub.**
+
+### 5. Run the application
+
+For a text-only demonstration without API credentials:
+
+```bash
+python agent.py
+```
+
+To launch the web application:
+
+```bash
+python app.py
+```
+
+Open:
+
+```text
+http://localhost:5000
+```
+
+For deployment:
+
+```bash
+gunicorn -w 1 --threads 4 app:app
+```
+
+The application uses in-memory conversation sessions, so a single worker is recommended to keep session state within one process.
+
+## 📊 Testing & Evaluation
+
+The project includes automated tests and an intent-recognition evaluation pipeline.
+
+### Automated Testing
+
+```bash
+pytest -q
+```
+
+The test suite contains **181 tests** covering:
+
+- Hindi number parsing.
+- Slot extraction and intent recognition.
+- Dialog management and follow-up handling.
+- Safety detection.
+- EV calculation tools.
+- UI response cards.
+- Server-side limits.
+
+### Intent Recognition Evaluation
+
+The evaluation uses 50 labelled synthetic utterances across 11 intents, with simulated speech-to-text errors at different corruption probabilities.
+
+| Evaluation condition | Test utterances | Accuracy |
+|---|---:|---:|
+| Clean text | 50 | 100.0% |
+| Simulated STT errors (p = 0.1) | 500 | 95.0% |
+| Simulated STT errors (p = 0.2) | 500 | 90.4% |
+| Simulated STT errors (p = 0.3) | 500 | 83.2% |
+
+Run the evaluation:
+
+```bash
+python eval_intents.py
+```
+
+### Audio Robustness Testing
+
+The project also includes a test pipeline for evaluating speech recognition under different audio conditions.
+
+```bash
+python noise_test.py
+```
+
+It supports testing:
+
+- Clean audio.
+- Simulated traffic noise.
+- 8 kHz telephone-line audio.
+
+This requires Gnani API credentials and suitable synthetic or self-recorded audio clips.
+
+**Evaluation caveat:** The intent evaluation set was authored by the same developer who implemented the rules. The results are therefore preliminary and optimistic, not independent benchmarks or real-world field accuracy. Simulated errors are also not a substitute for actual Prisma recognition errors.
+
+## ⚠️ Assumptions & Limitations
+
+The project is a functional prototype, not a production-grade vehicle diagnostic or charging infrastructure platform.
+
+- **Synthetic charging data:** Charging stations, prices and route distances are demonstration data, not verified live listings.
+- **Vehicle assumptions:** Battery capacity, range, charger power, electricity prices and fuel prices are configurable assumptions.
+- **Simplified calculations:** Range estimation uses linear models. Charging is approximated using a two-stage charging model.
+- **Limited environmental modelling:** Terrain, temperature and battery chemistry are not fully modelled.
+- **Rule-based understanding:** Queries outside supported patterns may require clarification.
+- **In-memory sessions:** Conversation history is lost when the Flask process restarts.
+- **LLM fallback:** General EV responses are not independently verified against a knowledge base.
+- **No live navigation:** The application does not use GPS or live map data.
+
+The application should not be treated as a substitute for professional vehicle inspection or electrical safety procedures.
+
+## 🔒 Privacy & Safety
+
+- Digit sequences containing seven or more digits are masked before conversation logs are written.
+- Logging can be disabled using `EV_AGENT_LOG_PATH=`.
+- Safety-related keywords are checked before optional LLM processing.
+- The system prioritises safety responses when detecting situations such as smoke, sparks or electric shocks.
+- Only synthetic recordings, phone numbers and test utterances should be used in accordance with the challenge requirements.
+
+## 🔮 Future Scope
+
+Potential improvements include:
+
+- Integration with verified, real-time EV charging station databases.
+- Personalised battery estimation using actual vehicle telemetry.
+- Regional language support beyond Hindi and Hinglish.
+- Retrieval-augmented generation for verified EV ownership guidance.
+- Persistent user profiles and conversation history.
+- Integration with vehicle diagnostics and battery management systems.
+- Real-world testing with e-rickshaw drivers.
+
+## 🏁 Acknowledgements
+
+Developed as a submission for the **Great Indian AI Internship Challenge by Gnani AI**, exploring the practical application of Indian speech AI technologies in the electric mobility ecosystem.
+
+Special thanks to Gnani AI for providing the opportunity to build with its speech technologies.
+
+---
+
+<p align="center">
+  <strong>Built with ⚡ for India's electric mobility ecosystem.</strong>
+  <br/>
+  <sub>Vaibhav | <a href="https://github.com/regardsvaibhav">GitHub</a> | <a href="https://www.linkedin.com/in/vaibhavrgipt/">LinkedIn</a></sub>
+  <sub>Kanak Sharma | <a href="https://github.com/KanakSharma0308">GitHub</a> | <a href="https://www.linkedin.com/in/kanak-sharma-101023392?originalSubdomain=in">LinkedIn</a></sub>
+  
+</p>
